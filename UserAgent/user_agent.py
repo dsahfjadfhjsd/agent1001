@@ -104,7 +104,8 @@ class UserAgent:
             system_prompt = self._build_system_prompt()
             user_prompt = self._build_user_prompt(environment_content)
 
-            response = self.client.chat.completions.create(
+            # 使用await关键字进行异步调用
+            response = await self.client.chat.completions.acreate(
                 model=config.model.model_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -217,7 +218,7 @@ class UserAgentManager:
                 system_prompt = agent._build_system_prompt()
                 user_prompt = agent._build_user_prompt(environment_content)
 
-                # 同步API调用
+                # 同步API调用（在线程池中使用）
                 response = client.chat.completions.create(
                     model=config.model.model_name,
                     messages=[

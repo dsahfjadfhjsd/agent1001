@@ -69,7 +69,7 @@ class DistributionAgent:
         try:
             prompt = self._build_targeting_prompt(content, available_users)
 
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.acreate(
                 model=config.model.model_name,
                 messages=[
                     {"role": "system", "content": "你是一个专业的内容分发分析师，擅长用户画像分析和精准定位。"},
@@ -309,7 +309,7 @@ class DistributionEvaluator:
 }}
 """
 
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.acreate(
                 model=config.model.model_name,
                 messages=[
                     {"role": "system", "content": "你是一个内容分发策略优化专家。"},
