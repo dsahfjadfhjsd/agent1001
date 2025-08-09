@@ -94,8 +94,15 @@ class EnvironmentManager:
         if user_id not in self.current_state.participants:
             self.current_state.participants.append(user_id)
 
-    async def simulate_round(self, participating_users: List[str], concurrent: bool = True) -> Dict[str, Any]:
-        """模拟一轮交互"""
+    async def simulate_round(self, participating_users: List[str], concurrent: bool = True,
+                             concurrency_method: str = "asyncio") -> Dict[str, Any]:
+        """模拟一轮交互
+
+        Args:
+            participating_users: 参与用户列表
+            concurrent: 是否启用并发
+            concurrency_method: 并发方法 ("asyncio", "futures", "chunked")
+        """
         if not self.current_state:
             raise ValueError("环境未初始化，请先调用 initialize_environment")
 
@@ -103,7 +110,7 @@ class EnvironmentManager:
         self.current_state.round_number += 1
         current_round = self.current_state.round_number
 
-        self.logger.info(f"开始第 {current_round} 轮模拟，参与用户数: {len(participating_users)}")
+        self.logger.info(f"开始第 {current_round} 轮模拟，参与用户数: {len(participating_users)}, 并发方法: {concurrency_method}")
 
         # 构建环境内容供用户决策
         environment_content = {
@@ -116,10 +123,24 @@ class EnvironmentManager:
         }
 
         if concurrent:
-            # 并发模拟
-            actions = await self.user_manager.simulate_batch_actions(
-                participating_users, environment_content
-            )
+            # 根据方法选择并发实现
+            if concurrency_method == "asyncio":
+                actions = await self.user_manager.simulate_batch_actions(
+                    participating_users, environment_content
+                )
+            elif concurrency_method == "futures":
+                actions = await self.user_manager.simulate_batch_actions_with_futures(
+                    participating_users, environment_content
+                )
+            elif concurrency_method == "chunked":
+                actions = await self.user_manager.simulate_batch_actions_chunked(
+                    participating_users, environment_content
+                )
+            else:
+                self.logger.warning(f"未知的并发方法: {concurrency_method}，使用默认asyncio方法")
+                actions = await self.user_manager.simulate_batch_actions(
+                    participating_users, environment_content
+                )
         else:
             # 串行模拟
             actions = []

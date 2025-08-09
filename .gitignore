@@ -3,7 +3,11 @@ Data/
 __pycache__/
 .venv/
 DataProcess/
+output*/
+
 
 # file
 .env
 README.md
+Config/*.json
+test*.py

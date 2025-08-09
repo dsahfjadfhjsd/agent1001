@@ -47,12 +47,22 @@ class CognitiveGuidanceSystem:
         print(f"系统已初始化，会话ID: {self.session_id}")
         print(f"已加载 {len(self.user_manager.agents)} 个用户智能体")
 
-    async def start_simulation(self, post_data: Dict[str, Any], max_rounds: int = 3) -> Dict[str, Any]:
-        """开始模拟过程"""
+    async def start_simulation(self, post_data: Dict[str, Any], max_rounds: int = 3,
+                               concurrency_method: str = None) -> Dict[str, Any]:
+        """开始模拟过程
+
+        Args:
+            post_data: 帖子数据
+            max_rounds: 最大轮次
+            concurrency_method: 并发方法 ("asyncio", "futures", "chunked")
+        """
         if not self.is_initialized:
             raise ValueError("系统未初始化，请先调用 initialize_system()")
 
-        print(f"开始模拟，最大轮次: {max_rounds}")
+        if concurrency_method is None:
+            concurrency_method = config.user_simulation.concurrency_method
+
+        print(f"开始模拟，最大轮次: {max_rounds}，并发方法: {concurrency_method}")
 
         # 1. 创建帖子
         post = Post(
@@ -88,7 +98,8 @@ class CognitiveGuidanceSystem:
             # 模拟用户交互
             round_result = await self.environment.simulate_round(
                 participating_users=current_users,
-                concurrent=True
+                concurrent=True,
+                concurrency_method=concurrency_method
             )
             simulation_results.append(round_result)
 

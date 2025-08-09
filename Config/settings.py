@@ -26,6 +26,9 @@ class UserSimulationConfig:
     max_concurrent_users: int = 10
     user_memory_length: int = 5
     action_types: List[str] = field(default_factory=lambda: ["like", "comment", "share"])
+    concurrency_method: str = "asyncio"  # "asyncio", "futures", "chunked"
+    request_timeout: int = 30  # API请求超时时间（秒）
+    chunk_delay: float = 0.1  # 分块处理时的延迟（秒）
 
 
 @dataclass

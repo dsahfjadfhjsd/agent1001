@@ -5,6 +5,8 @@ import asyncio
 import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+import concurrent.futures
+from functools import partial
 import openai
 from openai import OpenAI
 
@@ -163,22 +165,141 @@ class UserAgentManager:
         return self.agents.get(user_id)
 
     async def simulate_batch_actions(self, user_ids: List[str], environment_content: Dict[str, Any]) -> List[UserAction]:
-        """批量模拟用户行为"""
-        tasks = []
-        for user_id in user_ids:
-            agent = self.agents.get(user_id)
-            if agent:
-                tasks.append(agent.decide_action(environment_content))
+        """批量模拟用户行为 - 改进的并发实现"""
+        max_concurrent = config.user_simulation.max_concurrent_users
 
+        # 方法1: 使用asyncio.Semaphore控制并发数
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def simulate_single_user(user_id: str) -> Optional[UserAction]:
+            async with semaphore:
+                agent = self.agents.get(user_id)
+                if agent:
+                    try:
+                        return await agent.decide_action(environment_content)
+                    except Exception as e:
+                        print(f"用户 {user_id} 模拟失败: {e}")
+                        return None
+                return None
+
+        # 创建任务并执行
+        tasks = [simulate_single_user(user_id) for user_id in user_ids]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 过滤掉异常和None结果
+        # 过滤结果
         actions = []
-        for result in results:
+        for i, result in enumerate(results):
             if isinstance(result, UserAction):
                 actions.append(result)
+            elif isinstance(result, Exception):
+                print(f"用户 {user_ids[i]} 执行异常: {result}")
 
         return actions
+
+    async def simulate_batch_actions_with_futures(self, user_ids: List[str], environment_content: Dict[str, Any]) -> List[UserAction]:
+        """使用concurrent.futures的并发实现（适用于CPU密集型任务）"""
+        max_workers = min(config.user_simulation.max_concurrent_users, len(user_ids))
+
+        def sync_simulate_user(user_id: str) -> Optional[UserAction]:
+            """同步版本的用户模拟（用于线程池）"""
+            agent = self.agents.get(user_id)
+            if not agent:
+                return None
+
+            try:
+                # 创建新的OpenAI客户端（线程安全）
+                client = OpenAI(
+                    api_key=config.model.api_key,
+                    base_url=config.model.base_url
+                )
+
+                # 构建提示词
+                system_prompt = agent._build_system_prompt()
+                user_prompt = agent._build_user_prompt(environment_content)
+
+                # 同步API调用
+                response = client.chat.completions.create(
+                    model=config.model.model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=config.model.temperature,
+                    max_tokens=config.model.max_tokens
+                )
+
+                result = json.loads(response.choices[0].message.content)
+
+                # 根据活跃度决定是否真的执行动作
+                import random
+                if random.random() > agent.profile.activity_level:
+                    result["action"] = "ignore"
+
+                if result["action"] == "ignore":
+                    return None
+
+                # 创建动作对象
+                action = UserAction(
+                    action_type=result["action"],
+                    target_id=environment_content.get("post_id", "unknown"),
+                    content=result.get("content", "")
+                )
+
+                # 记录到记忆中
+                agent.memory.add_interaction({
+                    "action": action.to_dict(),
+                    "environment": environment_content,
+                    "reasoning": result.get("reasoning", "")
+                })
+
+                return action
+
+            except Exception as e:
+                print(f"用户 {user_id} 模拟失败: {e}")
+                return None
+
+        # 使用线程池执行器
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            futures = [
+                loop.run_in_executor(executor, sync_simulate_user, user_id)
+                for user_id in user_ids
+            ]
+
+            # 等待所有任务完成
+            results = await asyncio.gather(*futures, return_exceptions=True)
+
+            actions = []
+            for i, result in enumerate(results):
+                if isinstance(result, UserAction):
+                    actions.append(result)
+                elif isinstance(result, Exception):
+                    print(f"用户 {user_ids[i]} 执行异常: {result}")
+
+        return actions
+
+    async def simulate_batch_actions_chunked(self, user_ids: List[str], environment_content: Dict[str, Any]) -> List[UserAction]:
+        """分块并发处理 - 适合大量用户的场景"""
+        max_concurrent = config.user_simulation.max_concurrent_users
+        chunk_size = max_concurrent
+
+        all_actions = []
+
+        # 将用户ID分块处理
+        for i in range(0, len(user_ids), chunk_size):
+            chunk = user_ids[i:i + chunk_size]
+            print(f"处理用户块 {i//chunk_size + 1}/{(len(user_ids) + chunk_size - 1)//chunk_size}")
+
+            # 处理当前块
+            chunk_actions = await self.simulate_batch_actions(chunk, environment_content)
+            all_actions.extend(chunk_actions)
+
+            # 可选：块之间的延迟，避免API限流
+            if i + chunk_size < len(user_ids):
+                await asyncio.sleep(0.1)
+
+        return all_actions
 
     def load_agents_from_config(self, config_path: str):
         """从配置文件加载智能体"""
