@@ -1,0 +1,8 @@
+# folder
+Data/
+__pycache__/
+.venv/
+DataProcess/
+
+# file
+.env

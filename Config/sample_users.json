@@ -1,0 +1,102 @@
+[
+    {
+        "user_id": "user_001",
+        "age": 28,
+        "gender": "female",
+        "occupation": "教师",
+        "education_level": "本科",
+        "location": "北京",
+        "stance": "support",
+        "emotion": "positive",
+        "intent": "discuss",
+        "personality_traits": {
+            "openness": 0.8,
+            "conscientiousness": 0.7,
+            "extraversion": 0.6
+        },
+        "interests": ["教育", "社会问题", "科技"],
+        "social_influence": 0.6,
+        "activity_level": 0.7,
+        "interaction_preference": ["comment", "like"]
+    },
+    {
+        "user_id": "user_002",
+        "age": 35,
+        "gender": "male",
+        "occupation": "工程师",
+        "education_level": "硕士",
+        "location": "上海",
+        "stance": "neutral",
+        "emotion": "neutral",
+        "intent": "share",
+        "personality_traits": {
+            "openness": 0.7,
+            "conscientiousness": 0.9,
+            "extraversion": 0.4
+        },
+        "interests": ["技术", "创新", "效率"],
+        "social_influence": 0.5,
+        "activity_level": 0.5,
+        "interaction_preference": ["like", "share"]
+    },
+    {
+        "user_id": "user_003",
+        "age": 22,
+        "gender": "female",
+        "occupation": "学生",
+        "education_level": "本科在读",
+        "location": "广州",
+        "stance": "oppose",
+        "emotion": "negative",
+        "intent": "criticize",
+        "personality_traits": {
+            "openness": 0.9,
+            "conscientiousness": 0.5,
+            "extraversion": 0.8
+        },
+        "interests": ["时尚", "娱乐", "社交"],
+        "social_influence": 0.3,
+        "activity_level": 0.9,
+        "interaction_preference": ["comment", "share"]
+    },
+    {
+        "user_id": "user_004",
+        "age": 45,
+        "gender": "male",
+        "occupation": "医生",
+        "education_level": "博士",
+        "location": "深圳",
+        "stance": "support",
+        "emotion": "neutral",
+        "intent": "support",
+        "personality_traits": {
+            "openness": 0.6,
+            "conscientiousness": 0.9,
+            "extraversion": 0.5
+        },
+        "interests": ["医疗", "健康", "科学"],
+        "social_influence": 0.8,
+        "activity_level": 0.4,
+        "interaction_preference": ["like"]
+    },
+    {
+        "user_id": "user_005",
+        "age": 31,
+        "gender": "other",
+        "occupation": "设计师",
+        "education_level": "本科",
+        "location": "杭州",
+        "stance": "neutral",
+        "emotion": "positive",
+        "intent": "share",
+        "personality_traits": {
+            "openness": 0.9,
+            "conscientiousness": 0.6,
+            "extraversion": 0.7
+        },
+        "interests": ["设计", "艺术", "创意"],
+        "social_influence": 0.4,
+        "activity_level": 0.6,
+        "interaction_preference": ["comment", "like", "share"]
+    }
+]
