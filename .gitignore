@@ -5,6 +5,7 @@ __pycache__/
 DataProcess/
 output*/
 Test/
+UserAgent/generated_users/
 
 # file
 .env
