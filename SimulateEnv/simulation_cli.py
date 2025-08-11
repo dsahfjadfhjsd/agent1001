@@ -424,4 +424,10 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # 使用更安全的运行方式
+    import os
+    current_dir = os.path.dirname(__file__)
+    sys.path.append(current_dir)
+
+    from async_utils import run_async_simple
+    run_async_simple(main())

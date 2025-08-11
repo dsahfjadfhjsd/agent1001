@@ -12,7 +12,12 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 
-from .interaction_core import InteractionEnvironment, UserAction, ActionType
+try:
+    # 尝试相对导入
+    from .interaction_core import InteractionEnvironment, UserAction, ActionType
+except ImportError:
+    # 如果相对导入失败，使用绝对导入
+    from interaction_core import InteractionEnvironment, UserAction, ActionType
 
 
 class DataStorage:
@@ -31,30 +36,30 @@ class DataStorage:
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(exist_ok=True)
 
-        # 创建子目录
-        self.environments_dir = self.base_dir / 'environments'
-        self.actions_dir = self.base_dir / 'actions'
-        self.states_dir = self.base_dir / 'states'
-
-        for dir_path in [self.environments_dir, self.actions_dir, self.states_dir]:
-            dir_path.mkdir(exist_ok=True)
+        # 只使用exports目录，避免数据冗余
+        self.exports_dir = self.base_dir / 'exports'
+        self.exports_dir.mkdir(exist_ok=True)
 
     def save_environment(self, env: InteractionEnvironment, session_id: str) -> str:
         """
-        保存整个环境数据
+        保存整个环境数据到exports目录
 
         Args:
             env: 交互环境实例
             session_id: 会话ID
 
         Returns:
-            保存的文件路径
+            保存的目录路径
         """
+        # 创建会话目录
+        session_dir = self.exports_dir / session_id
+        session_dir.mkdir(exist_ok=True)
+
         # 保存环境状态
-        self.save_environment_state(env, session_id)
+        self.save_environment_state(env, session_id, session_dir)
 
         # 保存用户行为
-        self.save_user_actions(env.actions, session_id)
+        self.save_user_actions(env.actions, session_id, session_dir)
 
         # 保存环境基本信息
         env_info = {
@@ -69,19 +74,20 @@ class DataStorage:
             'last_updated': datetime.now().isoformat()
         }
 
-        info_path = self.environments_dir / f"{session_id}_info.json"
+        info_path = session_dir / "session_info.json"
         with open(info_path, 'w', encoding='utf-8') as f:
             json.dump(env_info, f, indent=2, ensure_ascii=False)
 
-        return str(info_path)
+        return str(session_dir)
 
-    def save_environment_state(self, env: InteractionEnvironment, session_id: str) -> str:
+    def save_environment_state(self, env: InteractionEnvironment, session_id: str, session_dir: Path) -> str:
         """
         保存环境状态快照
 
         Args:
             env: 交互环境实例
             session_id: 会话ID
+            session_dir: 会话目录
 
         Returns:
             保存的文件路径
@@ -90,7 +96,6 @@ class DataStorage:
 
         # 保存帖子信息
         post_data = [{
-            'session_id': session_id,
             'post_id': state['post']['post_id'],
             'content': state['post']['content'],
             'author_id': state['post']['author_id'],
@@ -99,7 +104,7 @@ class DataStorage:
             'saved_at': datetime.now().isoformat()
         }]
 
-        post_path = self.states_dir / f"{session_id}_posts.csv"
+        post_path = session_dir / "posts.csv"
         self._save_to_csv(post_path, post_data)
 
         # 保存评论信息
@@ -107,7 +112,6 @@ class DataStorage:
         for comment in state['primary_comments']:
             # 保存一级评论
             comments_data.append({
-                'session_id': session_id,
                 'comment_id': comment['comment_id'],
                 'post_id': env.post.post_id,
                 'content': comment['content'],
@@ -122,7 +126,6 @@ class DataStorage:
             # 保存二级评论
             for sub_comment in comment.get('sub_comments', []):
                 comments_data.append({
-                    'session_id': session_id,
                     'comment_id': sub_comment['comment_id'],
                     'post_id': env.post.post_id,
                     'content': sub_comment['content'],
@@ -135,18 +138,19 @@ class DataStorage:
                 })
 
         if comments_data:
-            comments_path = self.states_dir / f"{session_id}_comments.csv"
+            comments_path = session_dir / "comments.csv"
             self._save_to_csv(comments_path, comments_data)
 
         return str(post_path)
 
-    def save_user_actions(self, actions: List[UserAction], session_id: str) -> str:
+    def save_user_actions(self, actions: List[UserAction], session_id: str, session_dir: Path) -> str:
         """
         保存用户行为数据
 
         Args:
             actions: 用户行为列表
             session_id: 会话ID
+            session_dir: 会话目录
 
         Returns:
             保存的文件路径
@@ -156,9 +160,7 @@ class DataStorage:
 
         actions_data = []
         for action in actions:
-            actions_data.append({
-                'session_id': session_id,
-                'action_id': action.action_id,
+            action_data = {
                 'user_id': action.user_id,
                 'action_type': action.action_type.value,
                 'target_id': action.target_id,
@@ -166,9 +168,18 @@ class DataStorage:
                 'round_number': action.round_number,
                 'created_at': action.created_at.isoformat(),
                 'saved_at': datetime.now().isoformat()
-            })
+            }
 
-        actions_path = self.actions_dir / f"{session_id}_actions.csv"
+            # 如果是评论相关行为，添加comment_id
+            if action.action_type in [ActionType.COMMENT_POST, ActionType.COMMENT_COMMENT, ActionType.LIKE_COMMENT]:
+                # 对于所有评论相关行为，comment_id就是target_id（如果是评论ID）
+                action_data['comment_id'] = action.target_id if action.target_id.startswith('comment_') else ''
+            else:
+                action_data['comment_id'] = ''
+
+            actions_data.append(action_data)
+
+        actions_path = session_dir / "all_actions.csv"
         self._save_to_csv(actions_path, actions_data)
 
         return str(actions_path)
@@ -192,19 +203,30 @@ class DataStorage:
 
         actions_data = []
         for action in round_actions:
-            actions_data.append({
-                'session_id': session_id,
+            action_data = {
                 'round_number': round_number,
-                'action_id': action.action_id,
                 'user_id': action.user_id,
                 'action_type': action.action_type.value,
                 'target_id': action.target_id,
                 'content': action.content or '',
                 'created_at': action.created_at.isoformat(),
                 'saved_at': datetime.now().isoformat()
-            })
+            }
 
-        round_path = self.actions_dir / f"{session_id}_round_{round_number}_actions.csv"
+            # 如果是评论相关行为，添加comment_id
+            if action.action_type in [ActionType.COMMENT_POST, ActionType.COMMENT_COMMENT, ActionType.LIKE_COMMENT]:
+                # 对于所有评论相关行为，comment_id就是target_id（如果是评论ID）
+                action_data['comment_id'] = action.target_id if action.target_id.startswith('comment_') else ''
+            else:
+                action_data['comment_id'] = ''
+
+            actions_data.append(action_data)
+
+        # 保存到会话目录
+        session_dir = self.exports_dir / session_id
+        session_dir.mkdir(exist_ok=True)
+
+        round_path = session_dir / f"round_{round_number}_actions.csv"
         self._save_to_csv(round_path, actions_data)
 
         return str(round_path)
@@ -219,7 +241,9 @@ class DataStorage:
         Returns:
             交互环境实例，如果不存在则返回None
         """
-        info_path = self.environments_dir / f"{session_id}_info.json"
+        session_dir = self.exports_dir / session_id
+        info_path = session_dir / "session_info.json"
+
         if not info_path.exists():
             return None
 
@@ -235,7 +259,7 @@ class DataStorage:
         env.current_round = env_info['total_rounds']
 
         # 加载用户行为
-        actions_path = self.actions_dir / f"{session_id}_actions.csv"
+        actions_path = session_dir / "all_actions.csv"
         if actions_path.exists():
             actions_df = pd.read_csv(actions_path)
             for _, row in actions_df.iterrows():
@@ -263,7 +287,9 @@ class DataStorage:
         Returns:
             用户行为数据列表
         """
-        actions_path = self.actions_dir / f"{session_id}_actions.csv"
+        session_dir = self.exports_dir / session_id
+        actions_path = session_dir / "all_actions.csv"
+
         if not actions_path.exists():
             return []
 
@@ -285,14 +311,16 @@ class DataStorage:
         Returns:
             行为数据列表
         """
+        session_dir = self.exports_dir / session_id
+
         # 先尝试加载单独的轮次文件
-        round_path = self.actions_dir / f"{session_id}_round_{round_number}_actions.csv"
+        round_path = session_dir / f"round_{round_number}_actions.csv"
         if round_path.exists():
             df = pd.read_csv(round_path)
             return df.to_dict('records')
 
         # 如果没有单独文件，从总文件中筛选
-        actions_path = self.actions_dir / f"{session_id}_actions.csv"
+        actions_path = session_dir / "all_actions.csv"
         if not actions_path.exists():
             return []
 
@@ -311,7 +339,9 @@ class DataStorage:
         Returns:
             会话摘要字典
         """
-        info_path = self.environments_dir / f"{session_id}_info.json"
+        session_dir = self.exports_dir / session_id
+        info_path = session_dir / "session_info.json"
+
         if not info_path.exists():
             return None
 
@@ -319,7 +349,7 @@ class DataStorage:
             env_info = json.load(f)
 
         # 加载行为统计
-        actions_path = self.actions_dir / f"{session_id}_actions.csv"
+        actions_path = session_dir / "all_actions.csv"
         action_stats = {}
         if actions_path.exists():
             df = pd.read_csv(actions_path)
@@ -335,8 +365,8 @@ class DataStorage:
 
     def list_sessions(self) -> List[str]:
         """列出所有会话ID"""
-        info_files = list(self.environments_dir.glob("*_info.json"))
-        return [f.stem.replace('_info', '') for f in info_files]
+        session_dirs = [d for d in self.exports_dir.iterdir() if d.is_dir()]
+        return [d.name for d in session_dirs]
 
     def _save_to_csv(self, file_path: Path, data: List[Dict[str, Any]], mode: str = 'w'):
         """
@@ -363,47 +393,39 @@ class DataStorage:
 
     def export_session_data(self, session_id: str, export_dir: str = None) -> str:
         """
-        导出会话的所有数据到指定目录
+        获取会话数据目录路径（数据已经存储在exports目录中）
 
         Args:
             session_id: 会话ID
-            export_dir: 导出目录，如果不指定则在base_dir下创建exports目录
+            export_dir: 导出目录，如果指定则复制到该目录
 
         Returns:
             导出目录路径
         """
+        session_dir = self.exports_dir / session_id
+
         if export_dir is None:
-            export_dir = self.base_dir / 'exports' / session_id
+            # 直接返回现有的会话目录路径
+            return str(session_dir)
         else:
-            export_dir = Path(export_dir)
+            # 如果指定了导出目录，则复制文件
+            export_path = Path(export_dir)
+            export_path.mkdir(parents=True, exist_ok=True)
 
-        export_dir.mkdir(parents=True, exist_ok=True)
+            # 复制所有文件
+            for file_path in session_dir.glob("*"):
+                if file_path.is_file():
+                    dst_path = export_path / file_path.name
+                    dst_path.write_bytes(file_path.read_bytes())
 
-        # 复制相关文件
-        files_to_copy = [
-            (self.environments_dir / f"{session_id}_info.json", "session_info.json"),
-            (self.actions_dir / f"{session_id}_actions.csv", "all_actions.csv"),
-            (self.states_dir / f"{session_id}_posts.csv", "posts.csv"),
-            (self.states_dir / f"{session_id}_comments.csv", "comments.csv")
-        ]
-
-        for src_path, dst_name in files_to_copy:
-            if src_path.exists():
-                dst_path = export_dir / dst_name
-                dst_path.write_bytes(src_path.read_bytes())
-
-        # 复制轮次行为文件
-        round_files = list(self.actions_dir.glob(f"{session_id}_round_*_actions.csv"))
-        for round_file in round_files:
-            dst_path = export_dir / round_file.name.replace(f"{session_id}_", "")
-            dst_path.write_bytes(round_file.read_bytes())
-
-        return str(export_dir)
+            return str(export_path)
 
 
 if __name__ == "__main__":
     # 测试代码
-    from .interaction_core import InteractionEnvironment, UserAction, ActionType
+    import sys
+    sys.path.append('.')
+    from interaction_core import InteractionEnvironment, UserAction, ActionType
 
     # 创建测试环境
     env = InteractionEnvironment("测试帖子内容")
@@ -421,12 +443,20 @@ if __name__ == "__main__":
     session_id = "test_session_001"
 
     # 保存环境
-    info_path = storage.save_environment(env, session_id)
-    print(f"环境已保存: {info_path}")
+    save_path = storage.save_environment(env, session_id)
+    print(f"环境已保存到: {save_path}")
 
     # 获取会话摘要
     summary = storage.get_session_summary(session_id)
     print(f"会话摘要: {summary}")
+
+    # 列出所有会话
+    sessions = storage.list_sessions()
+    print(f"所有会话: {sessions}")
+
+    # 导出会话数据
+    export_path = storage.export_session_data(session_id)
+    print(f"数据导出路径: {export_path}")
 
     # 加载环境
     loaded_env = storage.load_environment(session_id)

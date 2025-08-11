@@ -4,9 +4,6 @@
 整合所有组件，提供完整的交互模拟功能
 """
 
-from .user_behavior_simulator import UserBehaviorSimulator, SimulationConfig
-from .data_storage import DataStorage
-from .interaction_core import InteractionEnvironment, UserAction
 import asyncio
 import json
 import uuid
@@ -18,6 +15,19 @@ import os
 
 # 添加父目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+# fmt:off
+try:
+    # 尝试相对导入
+    from .interaction_core import InteractionEnvironment, UserAction
+    from .data_storage import DataStorage
+    from .user_behavior_simulator import UserBehaviorSimulator, SimulationConfig
+except ImportError:
+    # 如果相对导入失败，使用绝对导入
+    from interaction_core import InteractionEnvironment, UserAction
+    from data_storage import DataStorage
+    from user_behavior_simulator import UserBehaviorSimulator, SimulationConfig
+# fmt:on
 
 
 class SimulationEngine:
@@ -38,6 +48,14 @@ class SimulationEngine:
         # 当前活跃会话
         self.current_session_id: Optional[str] = None
         self.current_environment: Optional[InteractionEnvironment] = None
+
+    async def close(self):
+        """关闭引擎和所有连接"""
+        try:
+            if self.simulator:
+                await self.simulator.close()
+        except:
+            pass
 
     def create_session(self, post_content: str, session_id: str = None) -> str:
         """

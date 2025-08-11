@@ -49,11 +49,11 @@ class Comment:
     def __post_init__(self):
         if not self.comment_id:
             if self.parent_comment_id:
-                # 二级评论：父评论ID_子评论ID
-                self.comment_id = f"{self.parent_comment_id}_sub_{uuid.uuid4().hex[:6]}"
+                # 二级评论：comment_子评论ID
+                self.comment_id = f"comment_{uuid.uuid4().hex[:6]}_sub"
             else:
-                # 一级评论：帖子ID_评论ID
-                self.comment_id = f"{self.post_id}_comment_{uuid.uuid4().hex[:6]}"
+                # 一级评论：comment_评论ID
+                self.comment_id = f"comment_{uuid.uuid4().hex[:6]}"
 
     @property
     def is_sub_comment(self) -> bool:
@@ -112,11 +112,15 @@ class InteractionEnvironment:
             if action.action_type == ActionType.LIKE_POST:
                 self._like_post(action.user_id, action.target_id)
             elif action.action_type == ActionType.COMMENT_POST:
-                self._comment_post(action.user_id, action.target_id, action.content)
+                comment_id = self._comment_post(action.user_id, action.target_id, action.content)
+                # 更新action的target_id为新生成的comment_id
+                action.target_id = comment_id
             elif action.action_type == ActionType.LIKE_COMMENT:
                 self._like_comment(action.user_id, action.target_id)
             elif action.action_type == ActionType.COMMENT_COMMENT:
-                self._comment_comment(action.user_id, action.target_id, action.content)
+                comment_id = self._comment_comment(action.user_id, action.target_id, action.content)
+                # 更新action的target_id为新生成的comment_id
+                action.target_id = comment_id
 
             # 记录行为
             action.round_number = self.current_round
@@ -140,7 +144,7 @@ class InteractionEnvironment:
             self.post.like_users.append(user_id)
             self.post.likes += 1
 
-    def _comment_post(self, user_id: str, post_id: str, content: str):
+    def _comment_post(self, user_id: str, post_id: str, content: str) -> str:
         """评论帖子"""
         if post_id != self.post.post_id:
             raise ValueError(f"帖子ID不匹配: {post_id}")
@@ -152,6 +156,7 @@ class InteractionEnvironment:
             author_id=user_id
         )
         self.comments[comment.comment_id] = comment
+        return comment.comment_id
 
     def _like_comment(self, user_id: str, comment_id: str):
         """点赞评论"""
@@ -163,7 +168,7 @@ class InteractionEnvironment:
             comment.like_users.append(user_id)
             comment.likes += 1
 
-    def _comment_comment(self, user_id: str, parent_comment_id: str, content: str):
+    def _comment_comment(self, user_id: str, parent_comment_id: str, content: str) -> str:
         """回复评论（二级评论）"""
         if parent_comment_id not in self.comments:
             raise ValueError(f"父评论不存在: {parent_comment_id}")
@@ -177,6 +182,7 @@ class InteractionEnvironment:
             parent_comment_id=parent_comment_id
         )
         self.comments[sub_comment.comment_id] = sub_comment
+        return sub_comment.comment_id
 
     def get_environment_state(self) -> Dict[str, Any]:
         """

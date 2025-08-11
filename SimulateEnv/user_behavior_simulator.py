@@ -13,22 +13,28 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 import openai
+import sys
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
-from .interaction_core import InteractionEnvironment, UserAction, ActionType
+try:
+    # 尝试相对导入
+    from .interaction_core import InteractionEnvironment, UserAction, ActionType
+except ImportError:
+    # 如果相对导入失败，使用绝对导入
+    from interaction_core import InteractionEnvironment, UserAction, ActionType
 
 
 @dataclass
 class SimulationConfig:
     """模拟配置"""
     max_concurrent_requests: int = 5
-    request_timeout: int = 30
-    model_name: str = "gpt-3.5-turbo"
+    request_timeout: int = 60
+    model_name: str = "qwen-flash"
     max_tokens: int = 500
     temperature: float = 0.7
-    action_probability: float = 0.3  # 用户采取行动的概率
-    comment_probability: float = 0.6  # 在决定行动时选择评论而非点赞的概率
+    action_probability: float = 0.7  # 用户采取行动的概率
+    comment_probability: float = 0.3  # 在决定行动时选择评论而非点赞的概率
 
 
 class UserBehaviorSimulator:
@@ -54,6 +60,14 @@ class UserBehaviorSimulator:
 
         # 创建信号量控制并发
         self.semaphore = asyncio.Semaphore(self.config.max_concurrent_requests)
+
+    async def close(self):
+        """关闭客户端连接"""
+        try:
+            if hasattr(self.client, 'close'):
+                await self.client.close()
+        except:
+            pass
 
     async def simulate_user_behavior(
         self,
@@ -156,8 +170,8 @@ class UserBehaviorSimulator:
                         },
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=self.config.max_tokens,
-                    temperature=self.config.temperature
+                    # max_tokens=self.config.max_tokens,
+                    # temperature=self.config.temperature
                 ),
                 timeout=self.config.request_timeout
             )
@@ -241,7 +255,9 @@ class UserBehaviorSimulator:
             prompt += "暂无评论\n"
 
         prompt += f"""
-请根据用户画像和当前环境，决定用户是否采取行动以及采取什么行动。
+请根据用户画像和当前环境，假设你是该用户，判断是否采取行动以及采取什么行动。
+通常根据用户活跃度越低，越可能不采取行动
+而若是行动，行为倾向高低一般为：点赞 > 评论 = 回复
 
 可选行为：
 1. like_post - 点赞帖子
@@ -273,6 +289,12 @@ class UserBehaviorSimulator:
                 prompt += f"  * {comment['comment_id']}\n"
                 for sub in comment.get('sub_comments', []):
                     prompt += f"    - {sub['comment_id']}\n"
+
+        # 将prompt持续输出到一个txt文件中
+        with open("user_behavior_prompt.txt", "a", encoding="utf-8") as f:
+            f.write(f"\n\n=== 时间戳: {datetime.now().strftime('%H:%M:%S')} ===\n")
+            f.write(prompt)
+            f.write("\n" + "="*50 + "\n")
 
         return prompt
 
@@ -400,8 +422,15 @@ class UserBehaviorSimulator:
 if __name__ == "__main__":
     # 测试代码
     async def test_simulator():
-        from ..UserAgent.user_profile_manager import UserProfileManager
-        from .interaction_core import InteractionEnvironment
+        import sys
+        import os
+
+        # 添加项目根目录到路径
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        sys.path.append(project_root)
+
+        from UserAgent.user_profile_manager import UserProfileManager
+        from SimulateEnv.interaction_core import InteractionEnvironment
 
         # 创建测试环境
         env = InteractionEnvironment("人工智能的发展对社会有什么影响？")
@@ -424,5 +453,16 @@ if __name__ == "__main__":
             if action.content:
                 print(f"  内容: {action.content}")
 
-    # 运行测试
-    # asyncio.run(test_simulator())
+        # 关闭客户端连接
+        await simulator.close()
+
+    # 运行测试 - 使用更安全的方式
+    import os
+    import sys
+
+    # 添加当前目录到路径以导入 async_utils
+    current_dir = os.path.dirname(__file__)
+    sys.path.append(current_dir)
+
+    from async_utils import run_async_simple
+    run_async_simple(test_simulator())

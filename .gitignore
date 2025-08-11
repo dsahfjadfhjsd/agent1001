@@ -10,5 +10,7 @@ UserAgent/generated_users/
 # file
 .env
 README.md
+*.md
 Config/*.json
 test*.py
+user_behavior_prompt.txt
