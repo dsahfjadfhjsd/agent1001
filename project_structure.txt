@@ -1,0 +1,38 @@
+项目结构
+==========
+agent1001/
+├── Config/
+│   ├── .env
+│   └── user_profiles.json
+├── Data/
+│   └── XMSU7D/
+│       ├── douyin/
+│       ├── weibo/
+│       ├── weixin/
+│       ├── xhs/
+│       └── zhihu/
+├── DataProcess/
+│   └── __init__.py
+├── DisAgent/
+│   └── __init__.py
+├── SimulateEnv/
+│   ├── data/
+│   │   └── exports/
+│   ├── __init__.py
+│   ├── async_utils.py
+│   ├── data_storage.py
+│   ├── demo.py
+│   ├── interaction_core.py
+│   ├── simulation_engine.py
+│   └── user_behavior_simulator.py
+├── Test/
+├── UserAgent/
+│   ├── generated_users/
+│   ├── __init__.py
+│   ├── simple_cli.py
+│   ├── user_profile_generator.py
+│   └── user_profile_manager.py
+├── .python-version
+├── pyproject.toml
+├── tree.py
+└── user_behavior_prompt.txt
