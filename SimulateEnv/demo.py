@@ -198,7 +198,7 @@ async def demo_api_usage():
 if __name__ == "__main__":
     async def main():
         await demo_complete_simulation()
-        await demo_api_usage()
+        # await demo_api_usage()
 
     # 使用更安全的运行方式
     import os

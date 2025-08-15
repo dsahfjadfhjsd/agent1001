@@ -12,17 +12,16 @@ import os
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
-import openai
 import sys
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 try:
     # 尝试相对导入
-    from .interaction_core import InteractionEnvironment, UserAction, ActionType
+    from .interaction_core import UserAction, ActionType
 except ImportError:
     # 如果相对导入失败，使用绝对导入
-    from interaction_core import InteractionEnvironment, UserAction, ActionType
+    from interaction_core import UserAction, ActionType
 
 
 @dataclass
