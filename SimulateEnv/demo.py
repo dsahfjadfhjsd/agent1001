@@ -31,9 +31,11 @@ async def demo_complete_simulation():
     manager = UserProfileManager()
 
     # 生成演示用户
-    filepath = manager.generate_users(8, "demo_users.csv")
+    # filepath = manager.generate_users(100, "demo_users.csv")
+    filepath = "demo_users.csv"
+    users_num = manager.load_users_from_file(filepath)
     users = manager.get_all_users()
-    print(f"✓ 生成了 {len(users)} 个用户画像，保存到: {filepath}")
+    print(f"✓ 生成了 {users_num} 个用户画像，保存到: {filepath}")
 
     # 显示用户信息
     print("\n用户画像样例：")
@@ -45,9 +47,9 @@ async def demo_complete_simulation():
     print("-" * 25)
 
     config = SimulationConfig(
-        max_concurrent_requests=5,
-        action_probability=1.0,  # 100%的用户会采取行动
-        comment_probability=0.6   # 60%的行动是评论
+        max_concurrent_requests=10,
+        action_probability=0.7,  # 70%的用户会采取行动
+        comment_probability=0.4   # 40%的行动是评论
     )
 
     engine = SimulationEngine(config)
@@ -67,8 +69,8 @@ async def demo_complete_simulation():
     try:
         summary = await engine.run_simulation(
             user_profiles=users,
-            num_rounds=5,  # 3轮模拟
-            users_per_round=5,  # 每轮5个用户
+            num_rounds=5,  # n轮模拟
+            users_per_round=10,  # 每轮m个用户
             randomize_users=True
         )
 

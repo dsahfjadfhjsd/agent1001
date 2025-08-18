@@ -184,52 +184,84 @@ class DataStorage:
 
         return str(actions_path)
 
-    def save_round_actions(self, actions: List[UserAction], session_id: str, round_number: int) -> str:
+    def save_incremental_data(self, env: InteractionEnvironment, session_id: str) -> str:
         """
-        保存单轮用户行为数据
+        增量保存环境数据（每轮结束后调用）
+
+        Args:
+            env: 交互环境实例
+            session_id: 会话ID
+
+        Returns:
+            保存的目录路径
+        """
+        # 创建会话目录
+        session_dir = self.exports_dir / session_id
+        session_dir.mkdir(exist_ok=True)
+
+        # 保存环境状态（覆盖保存）
+        self.save_environment_state(env, session_id, session_dir)
+
+        # 增量保存用户行为（追加模式）
+        self._save_user_actions_incremental(env.actions, session_dir)
+
+        # 保存/更新环境基本信息
+        env_info = {
+            'session_id': session_id,
+            'post_id': env.post.post_id,
+            'post_content': env.post.content,
+            'total_rounds': env.current_round,
+            'total_actions': len(env.actions),
+            'total_comments': len(env.comments),
+            'active_users': len(env.user_action_count),
+            'created_at': getattr(self, '_session_created_at', datetime.now().isoformat()),
+            'last_updated': datetime.now().isoformat()
+        }
+
+        # 记录会话创建时间（仅第一次）
+        if not hasattr(self, '_session_created_at'):
+            self._session_created_at = env_info['created_at']
+
+        info_path = session_dir / "session_info.json"
+        with open(info_path, 'w', encoding='utf-8') as f:
+            json.dump(env_info, f, indent=2, ensure_ascii=False)
+
+        return str(session_dir)
+
+    def _save_user_actions_incremental(self, actions: List[UserAction], session_dir: Path):
+        """
+        增量保存用户行为数据
 
         Args:
             actions: 用户行为列表
-            session_id: 会话ID
-            round_number: 轮次号
-
-        Returns:
-            保存的文件路径
+            session_dir: 会话目录
         """
-        round_actions = [a for a in actions if a.round_number == round_number]
-
-        if not round_actions:
-            return ""
+        if not actions:
+            return
 
         actions_data = []
-        for action in round_actions:
+        for action in actions:
             action_data = {
-                'round_number': round_number,
                 'user_id': action.user_id,
                 'action_type': action.action_type.value,
                 'target_id': action.target_id,
                 'content': action.content or '',
+                'round_number': action.round_number,
                 'created_at': action.created_at.isoformat(),
                 'saved_at': datetime.now().isoformat()
             }
 
             # 如果是评论相关行为，添加comment_id
             if action.action_type in [ActionType.COMMENT_POST, ActionType.COMMENT_COMMENT, ActionType.LIKE_COMMENT]:
-                # 对于所有评论相关行为，comment_id就是target_id（如果是评论ID）
                 action_data['comment_id'] = action.target_id if action.target_id.startswith('comment_') else ''
             else:
                 action_data['comment_id'] = ''
 
             actions_data.append(action_data)
 
-        # 保存到会话目录
-        session_dir = self.exports_dir / session_id
-        session_dir.mkdir(exist_ok=True)
-
-        round_path = session_dir / f"round_{round_number}_actions.csv"
-        self._save_to_csv(round_path, actions_data)
-
-        return str(round_path)
+        actions_path = session_dir / "all_actions.csv"
+        # 覆盖保存，因为我们要保存所有行为
+        self._save_to_csv(actions_path, actions_data, mode='w')
 
     def load_environment(self, session_id: str) -> Optional[InteractionEnvironment]:
         """
@@ -312,15 +344,8 @@ class DataStorage:
             行为数据列表
         """
         session_dir = self.exports_dir / session_id
-
-        # 先尝试加载单独的轮次文件
-        round_path = session_dir / f"round_{round_number}_actions.csv"
-        if round_path.exists():
-            df = pd.read_csv(round_path)
-            return df.to_dict('records')
-
-        # 如果没有单独文件，从总文件中筛选
         actions_path = session_dir / "all_actions.csv"
+
         if not actions_path.exists():
             return []
 

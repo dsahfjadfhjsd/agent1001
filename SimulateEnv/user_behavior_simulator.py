@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import sys
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
+from tqdm.asyncio import tqdm
 
 try:
     # 尝试相对导入
@@ -29,7 +30,7 @@ class SimulationConfig:
     """模拟配置"""
     max_concurrent_requests: int = 5
     request_timeout: int = 60
-    model_name: str = "qwen-flash"
+    model_name: str = "qwen-max"
     max_tokens: int = 500
     temperature: float = 0.7
     action_probability: float = 0.7  # 用户采取行动的概率
@@ -128,16 +129,41 @@ class UserBehaviorSimulator:
             task = self.simulate_user_behavior(user_profile, environment_state, round_number)
             tasks.append(task)
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # 使用tqdm显示进度条
+        print(f"🤖 正在模拟 {len(user_profiles)} 个用户的行为...")
+
+        # 包装任务以处理异常
+        async def safe_task(task):
+            try:
+                return await task
+            except Exception as e:
+                return e
+
+        safe_tasks = [safe_task(task) for task in tasks]
+        results = await tqdm.gather(
+            *safe_tasks,
+            desc=f"第{round_number}轮API调用",
+            unit="用户",
+            colour="green"
+        )
 
         # 过滤出成功的行为
         actions = []
+        successful_count = 0
+        error_count = 0
+
         for result in results:
             if isinstance(result, UserAction):
                 actions.append(result)
+                successful_count += 1
             elif isinstance(result, Exception):
-                print(f"用户行为模拟异常: {result}")
+                error_count += 1
+                print(f"⚠️  用户行为模拟异常: {result}")
+            else:
+                # None result (用户未采取行动)
+                pass
 
+        print(f"✅ 完成模拟 - 成功: {successful_count}, 错误: {error_count}, 无行动: {len(user_profiles) - successful_count - error_count}")
         return actions
 
     async def _get_ai_action_decision(
@@ -257,6 +283,7 @@ class UserBehaviorSimulator:
 请根据用户画像和当前环境，假设你是该用户，判断是否采取行动以及采取什么行动。
 通常根据用户活跃度越低，越可能不采取行动
 而若是行动，行为倾向高低一般为：点赞 > 评论 = 回复
+评论一般不超过30个字，而且要符合网络用户语境
 
 可选行为：
 1. like_post - 点赞帖子

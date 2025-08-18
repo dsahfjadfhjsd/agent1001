@@ -76,8 +76,11 @@ class SimulationEngine:
         self.current_environment = InteractionEnvironment(post_content)
         self.current_session_id = session_id
 
+        # 初始化保存时间戳
+        self.storage._session_created_at = datetime.now().isoformat()
+
         # 保存初始状态
-        self.storage.save_environment(self.current_environment, session_id)
+        self.storage.save_incremental_data(self.current_environment, session_id)
 
         print(f"创建新会话: {session_id}")
         print(f"初始帖子: {post_content}")
@@ -152,13 +155,10 @@ class SimulationEngine:
 
         print(f"成功应用行为数: {len(successful_actions)}")
 
-        # 保存数据
+        # 增量保存数据（每轮结束后立即保存）
         if save_round_data:
-            self.storage.save_environment(self.current_environment, self.current_session_id)
-            if successful_actions:
-                self.storage.save_round_actions(
-                    successful_actions, self.current_session_id, round_number
-                )
+            save_path = self.storage.save_incremental_data(self.current_environment, self.current_session_id)
+            print(f"数据已增量保存到: {save_path}")
 
         # 显示轮次结果
         self._print_round_summary(round_number, successful_actions)
@@ -203,7 +203,10 @@ class SimulationEngine:
                     import random
                     round_users = random.sample(user_profiles, users_per_round)
                 else:
-                    round_users = user_profiles[:users_per_round]
+                    if (round_num * users_per_round < len(user_profiles)):
+                        round_users = user_profiles[(round_num - 1) * users_per_round:round_num * users_per_round]
+                    else:
+                        round_users = user_profiles[-users_per_round:]
             else:
                 round_users = user_profiles
 
@@ -233,9 +236,6 @@ class SimulationEngine:
 
         # 生成最终摘要
         final_summary = self._generate_final_summary(all_actions, round_summaries)
-
-        # 保存最终状态
-        self.storage.save_environment(self.current_environment, self.current_session_id)
 
         print(f"\n{'='*50}")
         print("模拟完成！")
