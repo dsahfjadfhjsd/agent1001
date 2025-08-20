@@ -20,7 +20,7 @@ plt.rcParams['axes.unicode_minus'] = False
 
 
 class Analyzer:
-    def __init__(self, data_dir="Data/integrated_data", hour_interval=1):
+    def __init__(self, data_dir="Data/integrated_data", hour_interval=1, start_date=None, end_date=None):
         """初始化情感分析工具"""
         self.data_dir = Path(data_dir)
         self.articles_file = self.data_dir / "XMSU7D_integrated_articles.csv"
@@ -37,9 +37,9 @@ class Analyzer:
         self.sentiment_mapping = {"积极": 1, "中立": 0, "消极": -1}
 
         # 加载数据
-        self.load_data()
+        self.load_data(start_date, end_date)
 
-    def load_data(self):
+    def load_data(self, start_date_: str = None, end_date_: str = None):
         """加载并预处理数据"""
         print("📊 正在加载数据...")
 
@@ -55,9 +55,11 @@ class Analyzer:
         self.articles_df['datetime'] = pd.to_datetime(self.articles_df['created_date'])
         self.comments_df['datetime'] = pd.to_datetime(self.comments_df['created_date'])
 
-        # 过滤时间范围：2025-04-01 到 2025-04-05
-        start_date = pd.to_datetime('2025-04-01')
-        end_date = pd.to_datetime('2025-04-10')  # 不包含边界，所以用06
+        # 过滤时间范围：2025-04-01 到 2025-04-20
+        # start_date = pd.to_datetime('2025-04-01')
+        # end_date = pd.to_datetime('2025-04-20')  # 不包含边界
+        start_date = pd.to_datetime(start_date_) if start_date_ else self.articles_df['datetime'].min()
+        end_date = pd.to_datetime(end_date_) if end_date_ else self.articles_df['datetime'].max()
 
         self.articles_df = self.articles_df[
             (self.articles_df['datetime'] >= start_date) &
@@ -369,10 +371,10 @@ class Analyzer:
         return hourly_data
 
 
-def main(hour_interval=1):
+def main(hour_interval=1, start_date=None, end_date=None):
     """主函数"""
     # 创建分析工具
-    analyzer = Analyzer(hour_interval=hour_interval)
+    analyzer = Analyzer(hour_interval=hour_interval, start_date=start_date, end_date=end_date)
 
     # 生成报告
     hourly_data = analyzer.generate_report()
@@ -386,7 +388,8 @@ def main(hour_interval=1):
 if __name__ == "__main__":
     # 可以通过修改这个参数来设置时间间隔
     # 例如: hour_interval=3 表示每3小时统计一次
-    hour_interval = 4  # 默认每小时统计
-
+    hour_interval = 6  # 默认每小时统计
+    start_date = '2025-04-01'
+    end_date = '2025-04-20'
     print(f"🚀 开始分析，时间间隔: 每{hour_interval}小时")
-    result_data = main(hour_interval=hour_interval)
+    result_data = main(hour_interval=hour_interval, start_date=start_date, end_date=end_date)
