@@ -21,12 +21,19 @@ try:
     # 尝试相对导入
     from .interaction_core import InteractionEnvironment, UserAction
     from .data_storage import DataStorage
-    from .user_behavior_simulator import UserBehaviorSimulator, SimulationConfig
+    from .user_behavior_simulator import UserBehaviorSimulator, SimulationConfig, UserThinkingResult
 except ImportError:
     # 如果相对导入失败，使用绝对导入
     from interaction_core import InteractionEnvironment, UserAction
     from data_storage import DataStorage
-    from user_behavior_simulator import UserBehaviorSimulator, SimulationConfig
+    from user_behavior_simulator import UserBehaviorSimulator, SimulationConfig, UserThinkingResult
+
+# 导入用户记忆管理器
+try:
+    from UserAgent.user_memory_manager import UserMemoryManager, UserThinking
+except ImportError:
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from UserAgent.user_memory_manager import UserMemoryManager, UserThinking
 # fmt:on
 
 
@@ -44,6 +51,10 @@ class SimulationEngine:
         self.config = config or SimulationConfig()
         self.storage = DataStorage(storage_dir)
         self.simulator = UserBehaviorSimulator(self.config)
+
+        # 添加用户记忆管理器
+        memory_dir = os.path.join(storage_dir or 'data', 'user_memories') if storage_dir else None
+        self.memory_manager = UserMemoryManager(memory_dir)
 
         # 当前活跃会话
         self.current_session_id: Optional[str] = None
@@ -162,6 +173,112 @@ class SimulationEngine:
 
         # 显示轮次结果
         self._print_round_summary(round_number, successful_actions)
+
+        return successful_actions
+
+    async def simulate_round_with_thinking(
+        self,
+        user_profiles: List[Dict[str, Any]],
+        save_round_data: bool = True
+    ) -> List[UserAction]:
+        """
+        模拟一轮用户交互（包含思考过程和认知变化）
+
+        Args:
+            user_profiles: 参与本轮的用户画像列表
+            save_round_data: 是否保存本轮数据
+
+        Returns:
+            本轮生成的用户行为列表
+        """
+        if not self.current_environment or not self.current_session_id:
+            raise ValueError("没有活跃会话，请先创建或加载会话")
+
+        # 开始新一轮
+        self.current_environment.start_new_round()
+        round_number = self.current_environment.current_round
+
+        print(f"\n=== 开始第 {round_number} 轮模拟（增强模式） ===")
+        print(f"参与用户数: {len(user_profiles)}")
+
+        # 初始化用户记忆（如果还没有的话）
+        for user_profile in user_profiles:
+            user_id = user_profile['user_id']
+            if user_id not in self.memory_manager._memory_cache:
+                self.memory_manager.initialize_user_memory(user_profile)
+
+        # 获取当前环境状态
+        env_state = self.current_environment.get_environment_state()
+
+        # 为每个用户准备增强的画像（包含更新后的立场和情感值）
+        enhanced_user_profiles = []
+        for user_profile in user_profiles:
+            current_profile = self.memory_manager.get_user_current_profile(user_profile['user_id'])
+            if current_profile:
+                enhanced_user_profiles.append(current_profile)
+            else:
+                enhanced_user_profiles.append(user_profile)
+
+        # 并发模拟用户行为（使用增强的思考模式）
+        start_time = datetime.now()
+        thinking_results = await self._simulate_multiple_users_with_thinking(
+            enhanced_user_profiles, env_state, round_number
+        )
+        simulation_time = (datetime.now() - start_time).total_seconds()
+
+        print(f"模拟耗时: {simulation_time:.2f}秒")
+        print(f"生成思考结果数: {len(thinking_results)}")
+
+        # 处理思考结果
+        successful_actions = []
+        for thinking_result in thinking_results:
+            if thinking_result and thinking_result.action:
+                # 将行为应用到环境
+                if self.current_environment.add_action(thinking_result.action):
+                    successful_actions.append(thinking_result.action)
+
+                # 记录用户思考到记忆中
+                user_thinking = UserThinking(
+                    timestamp=datetime.now().isoformat(),
+                    round_number=round_number,
+                    content_seen=thinking_result.content_seen,
+                    thinking_process=thinking_result.thinking_process,
+                    stance_before=thinking_result.stance_before,
+                    stance_after=thinking_result.stance_after,
+                    sentiment_before=thinking_result.sentiment_before,
+                    sentiment_after=thinking_result.sentiment_after,
+                    action_taken=thinking_result.action.action_type.value if thinking_result.action else None,
+                    action_content=thinking_result.action.content if thinking_result.action else None
+                )
+
+                self.memory_manager.add_user_thinking(thinking_result.user_id, user_thinking)
+
+            elif thinking_result:
+                # 即使没有行为，也要记录思考过程
+                user_thinking = UserThinking(
+                    timestamp=datetime.now().isoformat(),
+                    round_number=round_number,
+                    content_seen=thinking_result.content_seen,
+                    thinking_process=thinking_result.thinking_process,
+                    stance_before=thinking_result.stance_before,
+                    stance_after=thinking_result.stance_after,
+                    sentiment_before=thinking_result.sentiment_before,
+                    sentiment_after=thinking_result.sentiment_after,
+                    action_taken="no_action",
+                    action_content=None
+                )
+
+                self.memory_manager.add_user_thinking(thinking_result.user_id, user_thinking)
+
+        print(f"成功应用行为数: {len(successful_actions)}")
+
+        # 增量保存数据（每轮结束后立即保存）
+        if save_round_data:
+            save_path = self.storage.save_incremental_data(self.current_environment, self.current_session_id)
+            print(f"数据已增量保存到: {save_path}")
+
+        # 显示轮次结果（包含认知变化信息）
+        self._print_enhanced_round_summary(round_number, successful_actions, thinking_results)
 
         return successful_actions
 
@@ -330,6 +447,148 @@ class SimulationEngine:
             'rounds': round_summaries,
             'final_state': self.current_environment.get_environment_state() if self.current_environment else None
         }
+
+    async def _simulate_multiple_users_with_thinking(
+        self,
+        user_profiles: List[Dict[str, Any]],
+        environment_state: Dict[str, Any],
+        round_number: int
+    ) -> List[UserThinkingResult]:
+        """
+        并发模拟多个用户的思考过程
+
+        Args:
+            user_profiles: 用户画像列表
+            environment_state: 当前环境状态
+            round_number: 当前轮次
+
+        Returns:
+            用户思考结果列表
+        """
+        tasks = []
+        for user_profile in user_profiles:
+            # 获取用户的历史记忆
+            user_memory = self.memory_manager.get_user_recent_interactions(
+                user_profile['user_id'], max_count=3
+            )
+
+            # 转换记忆格式为字典
+            memory_dicts = []
+            for memory in user_memory:
+                memory_dict = {
+                    'round_number': memory.round_number,
+                    'thinking_process': memory.thinking_process,
+                    'stance_before': memory.stance_before,
+                    'stance_after': memory.stance_after,
+                    'sentiment_before': memory.sentiment_before,
+                    'sentiment_after': memory.sentiment_after,
+                    'action_taken': memory.action_taken,
+                    'action_content': memory.action_content
+                }
+                memory_dicts.append(memory_dict)
+
+            task = self.simulator.simulate_user_behavior_with_thinking(
+                user_profile, environment_state, round_number, memory_dicts
+            )
+            tasks.append(task)
+
+        # 使用tqdm显示进度条
+        print(f"🧠 正在模拟 {len(user_profiles)} 个用户的思考过程...")
+
+        # 包装任务以处理异常
+        async def safe_task(task):
+            try:
+                return await task
+            except Exception as e:
+                return e
+
+        safe_tasks = [safe_task(task) for task in tasks]
+        results = await asyncio.gather(*safe_tasks)
+
+        # 过滤出成功的思考结果
+        thinking_results = []
+        successful_count = 0
+        error_count = 0
+
+        for result in results:
+            if isinstance(result, UserThinkingResult):
+                thinking_results.append(result)
+                successful_count += 1
+            elif isinstance(result, Exception):
+                error_count += 1
+                print(f"⚠️  用户思考模拟异常: {result}")
+            else:
+                # None result (用户未采取行动)
+                pass
+
+        print(f"✅ 完成思考模拟 - 成功: {successful_count}, 错误: {error_count}, 无思考: {len(user_profiles) - successful_count - error_count}")
+        return thinking_results
+
+    def _print_enhanced_round_summary(
+        self,
+        round_number: int,
+        actions: List[UserAction],
+        thinking_results: List[UserThinkingResult]
+    ):
+        """
+        打印增强的轮次结果摘要
+
+        Args:
+            round_number: 轮次号
+            actions: 成功的行为列表
+            thinking_results: 思考结果列表
+        """
+        if not actions:
+            print("本轮无用户行为")
+            return
+
+        # 统计行为类型
+        action_types = {}
+        for action in actions:
+            action_type = action.action_type.value
+            action_types[action_type] = action_types.get(action_type, 0) + 1
+
+        # 统计认知变化
+        stance_changes = []
+        sentiment_changes = []
+        for thinking_result in thinking_results:
+            if thinking_result:
+                stance_change = thinking_result.stance_after - thinking_result.stance_before
+                sentiment_change = thinking_result.sentiment_after - thinking_result.sentiment_before
+                if abs(stance_change) > 0.01:  # 只记录有意义的变化
+                    stance_changes.append(stance_change)
+                if abs(sentiment_change) > 0.01:
+                    sentiment_changes.append(sentiment_change)
+
+        print(f"\n第 {round_number} 轮结果:")
+        print(f"- 行为统计: {action_types}")
+        print(f"- 活跃用户: {len(set(action.user_id for action in actions))}人")
+
+        if stance_changes:
+            avg_stance_change = sum(stance_changes) / len(stance_changes)
+            print(f"- 平均立场变化: {avg_stance_change:.3f} ({len(stance_changes)}人有变化)")
+
+        if sentiment_changes:
+            avg_sentiment_change = sum(sentiment_changes) / len(sentiment_changes)
+            print(f"- 平均情感变化: {avg_sentiment_change:.3f} ({len(sentiment_changes)}人有变化)")
+
+        # 显示部分行为详情
+        print("- 部分行为详情:")
+        for i, action in enumerate(actions[:3], 1):
+            action_desc = action.action_type.value
+            if action.content:
+                content_preview = action.content[:30] + "..." if len(action.content) > 30 else action.content
+                action_desc += f" (内容: {content_preview})"
+            print(f"  {i}. {action.user_id[:20]}...: {action_desc}")
+
+    def get_user_cognition_changes(self) -> Dict[str, Any]:
+        """
+        获取所有用户的认知变化统计
+
+        Returns:
+            认知变化统计信息
+        """
+        return self.memory_manager.get_statistics()
 
 
 if __name__ == "__main__":

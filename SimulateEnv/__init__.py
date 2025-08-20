@@ -17,12 +17,13 @@ from .data_storage import DataStorage
 
 from .user_behavior_simulator import (
     UserBehaviorSimulator,
-    SimulationConfig
+    SimulationConfig,
+    UserThinkingResult
 )
 
 from .simulation_engine import SimulationEngine
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Agent System"
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     'DataStorage',
     'UserBehaviorSimulator',
     'SimulationConfig',
+    'UserThinkingResult',
     'SimulationEngine'
 ]

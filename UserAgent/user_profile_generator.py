@@ -122,6 +122,11 @@ class UserProfileGenerator:
             probabilities = stance_data.get('probability', [0.33, 0.33, 0.34])
             stance = random.choices(stances, weights=probabilities)[0]
             behavior_profile['stance'] = stance
+
+            # 添加立场量化值 [-1, 1]
+            stance_value_map = {'支持': 1.0, '中立': 0.0, '反对': -1.0}
+            behavior_profile['stance_value'] = stance_value_map[stance]
+
             # 对应关键词中挑选
             if stance in stance_data:
                 behavior_profile['stance_keywords'] = random.sample(stance_data[stance], k=1)
@@ -133,6 +138,11 @@ class UserProfileGenerator:
             probabilities = sentiment_data.get('probability', [0.33, 0.33, 0.34])
             sentiment = random.choices(sentiments, weights=probabilities)[0]
             behavior_profile['sentiment'] = sentiment
+
+            # 添加情感量化值 [-1, 1]
+            sentiment_value_map = {'积极': 1.0, '中立': 0.0, '消极': -1.0}
+            behavior_profile['sentiment_value'] = sentiment_value_map[sentiment]
+
             # 选择对应的关键词
             if sentiment in sentiment_data:
                 behavior_profile['sentiment_keywords'] = random.sample(sentiment_data[sentiment], k=1)
@@ -219,11 +229,23 @@ class UserProfileGenerator:
         with open(filepath, 'r', encoding='utf-8-sig') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                # 处理列表类型的字段
+                # 处理列表类型的字段和数值类型字段
                 processed_user = {}
                 for key, value in row.items():
                     if key.endswith('_keywords') and value:
                         processed_user[key] = value.split('|')
+                    elif key in ['stance_value', 'sentiment_value']:
+                        # 将数值字段转换为float类型
+                        try:
+                            processed_user[key] = float(value) if value else 0.0
+                        except (ValueError, TypeError):
+                            processed_user[key] = 0.0
+                    elif key == 'age':
+                        # 年龄转换为整数
+                        try:
+                            processed_user[key] = int(value) if value else 0
+                        except (ValueError, TypeError):
+                            processed_user[key] = 0
                     else:
                         processed_user[key] = value
                 users.append(processed_user)

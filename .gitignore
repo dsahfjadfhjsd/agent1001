@@ -6,6 +6,7 @@ output*/
 Test/
 UserAgent/generated_users/
 Config/
+UserAgent/user_memories/
 
 # file
 .env
