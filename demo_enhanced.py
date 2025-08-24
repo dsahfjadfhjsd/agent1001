@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 增强功能演示脚本
 
@@ -31,7 +32,7 @@ async def enhanced_demo():
 
     # 生成用户
     users_count = manager.load_users_from_file("demo_users_enhanced.csv")
-    users = manager.get_all_users()[:10]  # 只使用前10个用户进行演示
+    users = manager.get_all_users()[:30]  # 只使用前50个用户进行演示
     # filepath = manager.generate_users(100, "demo_users_enhanced.csv")
     # users = manager.get_all_users()[:10]  # 只使用前10个用户进行演示
 
@@ -49,17 +50,17 @@ async def enhanced_demo():
     print("-" * 30)
 
     config = SimulationConfig(
-        max_concurrent_requests=5,
+        max_concurrent_requests=10,
         action_probability=0.8,  # 提高行动概率以便看到更多效果
         comment_probability=0.5,
-        export_prompts=True,  # 🔥 启用prompt导出功能
-        prompt_export_dir="SimulateEnv/data/prompt_exports"  # prompt导出目录
+        # export_prompts=True,  # 🔥 启用prompt导出功能
+        # prompt_export_dir="SimulateEnv/data/prompt_exports"  # prompt导出目录
     )
 
     engine = SimulationEngine(config)
 
     # 创建会话
-    post_content = "小米SU7自动驾驶事故后，你们还会信任自动驾驶技术吗？这次事故是技术问题还是使用不当？"
+    post_content = """针对小米SU7被曝“在高速路上碰撞后爆燃致人员伤亡”一事，4月1日，小米汽车客服人员回应南都记者称，目前公司已经成立专门工作小组赶赴现场，会全力配合警方和家属对事故进行详细的还原调查，协助家属处理后续情况，将根据后续实际调查情况在官方渠道公布。此前曝光于网络的视频及图片显示，安徽一新能源车撞上高速公路中间护栏起火燃烧，另有被烧毁的车架显示事故车辆为小米SU7，车头已经基本全毁。有自称系车乘人员家属的网友表示，“3月29日晚车辆撞击护栏导致车门锁死，电池爆燃，车上三人活活烧没了。”针对小米SU7被曝“在高速路上碰撞后爆燃致人员伤亡”一事，4月1日，小米汽车客服人员回应南都记者称，目前公司已经成立专门工作小组赶赴现场，会全力配合警方和家属对事故进行详细的还原调查，协助家属处理后续情况，将根据后续实际调查情况在官方渠道公布。 网友发布的事故现场图片。此前曝光于网络的视频及图片显示，安徽一新能源车撞上高速公路中间护栏起火燃烧，另有被烧毁的车架显示事故车辆为小米SU7，车头已经基本全毁。有自称系车乘人员家属的网友表示，“3月29日晚车辆撞击护栏导致车门锁死，电池爆燃，车上三人活活烧没了。”网友发布的事故车辆。对此，4月1日，小米汽车客服人员回应南都记者称，“目前公司已经成立专门工作小组赶赴现场，会全力配合警方和家属对事故进行详细的还原调查，协助家属处理后续情况，将根据后续实际调查情况在官方渠道公布。”至于事故原因、死亡人数等细节，该客服称，“暂未获得更多信息。” """
     session_id = engine.create_session(post_content)
 
     print(f"✓ 创建会话: {session_id}")
@@ -73,12 +74,12 @@ async def enhanced_demo():
         # 运行2轮增强模拟
         all_actions = []
 
-        for round_num in range(1, 3):  # 运行2轮
+        for round_num in range(1, 6):  # 运行5轮
             print(f"\n--- 第 {round_num} 轮 ---")
 
             # 随机选择用户参与本轮
             import random
-            round_users = random.sample(users, 5)  # 每轮5个用户
+            round_users = random.sample(users, 10)  # 每轮10个用户
 
             # 使用增强模拟方法
             actions = await engine.simulate_round_with_thinking(round_users)

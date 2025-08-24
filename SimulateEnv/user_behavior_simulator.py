@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 用户行为模拟器
 
@@ -319,17 +320,7 @@ class UserBehaviorSimulator:
                     messages=[
                         {
                             "role": "system",
-                            "content": """你是一个社交媒体用户行为模拟器。根据用户画像、当前环境和历史记忆，模拟用户的思考过程并决定行为。
-
-你需要输出包含以下字段的JSON：
-1. thinking_process: 用户的详细思考过程
-2. action_type: 行为类型（like_post, comment_post, comment_comment, no_action）
-3. action_content: 如果是评论，提供评论内容
-4. target_id: 目标ID（帖子ID或评论ID）
-5. stance_after: 看完内容后的立场值（-1到1，-1完全批判小米，1完全支持小米，0中立）
-6. sentiment_after: 看完内容后的情感值（-1到1，-1消极，1积极，0中立）
-
-请严格按照JSON格式回复。"""
+                            "content": "你是一个社交媒体用户行为模拟器。根据用户画像、当前环境和历史记忆，模拟用户的思考过程并决定行为。请严格按照JSON格式回复。"
                         },
                         {"role": "user", "content": prompt}
                     ],
@@ -365,164 +356,6 @@ class UserBehaviorSimulator:
         except Exception as e:
             print(f"AI请求失败: {e}")
             return None
-
-    async def _get_ai_action_decision(
-        self,
-        user_profile: Dict[str, Any],
-        environment_state: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """
-        使用AI决定用户行为
-
-        Args:
-            user_profile: 用户画像
-            environment_state: 环境状态
-
-        Returns:
-            行为决策字典
-        """
-        # 构建提示词
-        prompt = self._build_behavior_prompt(user_profile, environment_state)
-
-        try:
-            response = await asyncio.wait_for(
-                self.client.chat.completions.create(
-                    model=self.config.model_name,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "你是一个社交媒体用户行为模拟器。根据用户画像和当前环境，决定用户的行为。请严格按照JSON格式回复。"
-                        },
-                        {"role": "user", "content": prompt}
-                    ],
-                    # max_tokens=self.config.max_tokens,
-                    # temperature=self.config.temperature
-                ),
-                timeout=self.config.request_timeout
-            )
-
-            content = response.choices[0].message.content.strip()
-
-            # 解析JSON响应
-            try:
-                decision = json.loads(content)
-                return decision
-            except json.JSONDecodeError:
-                # 尝试提取JSON部分
-                import re
-                json_match = re.search(r'\{.*\}', content, re.DOTALL)
-                if json_match:
-                    decision = json.loads(json_match.group())
-                    return decision
-                else:
-                    print(f"无法解析AI响应: {content}")
-                    return None
-
-        except asyncio.TimeoutError:
-            print("AI请求超时")
-            return None
-        except Exception as e:
-            print(f"AI请求失败: {e}")
-            return None
-
-    def _build_behavior_prompt(
-        self,
-        user_profile: Dict[str, Any],
-        environment_state: Dict[str, Any]
-    ) -> str:
-        """
-        构建行为决策提示词
-
-        Args:
-            user_profile: 用户画像
-            environment_state: 环境状态
-
-        Returns:
-            提示词字符串
-        """
-        # 提取用户特征
-        age_group = user_profile.get('age_group', '未知')
-        gender = user_profile.get('gender', '未知')
-        occupation = user_profile.get('occupation', '未知')
-        activity_level = user_profile.get('activity_level', '中等')
-        stance = user_profile.get('stance', '中立')
-        sentiment = user_profile.get('sentiment', '中立')
-
-        # 提取环境信息
-        post = environment_state['post']
-        comments = environment_state['primary_comments']
-
-        prompt = f"""
-用户画像：
-- 年龄组：{age_group}
-- 性别：{gender}
-- 职业：{occupation}
-- 活跃度：{activity_level}
-- 立场：{stance}
-- 情感倾向：{sentiment}
-
-当前环境：
-帖子内容："{post['content']}"
-帖子点赞数：{post['likes']}
-
-已有评论：
-"""
-
-        if comments:
-            for i, comment in enumerate(comments[:5], 1):  # 只显示前5条评论
-                prompt += f"{i}. {comment['content']} (点赞: {comment['likes']})\n"
-
-                # 显示部分二级评论
-                if comment.get('sub_comments'):
-                    for sub in comment['sub_comments'][:2]:  # 只显示前2条二级评论
-                        prompt += f"   └ {sub['content']} (点赞: {sub['likes']})\n"
-        else:
-            prompt += "暂无评论\n"
-
-        prompt += f"""
-请根据用户画像和当前环境，假设你是该用户，判断是否采取行动以及采取什么行动。
-通常根据用户活跃度越低，越可能不采取行动
-而若是行动，行为倾向高低一般为：点赞 > 评论 = 回复
-评论一般不超过30个字，而且要符合网络用户语境
-
-可选行为：
-1. like_post - 点赞帖子
-2. comment_post - 评论帖子
-3. like_comment - 点赞某条评论（需要指定comment_id）
-4. comment_comment - 回复某条评论（需要指定comment_id和回复内容）
-
-请回复JSON格式：
-{{
-    "action": "行为类型",
-    "target_id": "目标ID（帖子ID或评论ID）",
-    "content": "评论内容（如果是评论行为）",
-    "reasoning": "行为理由"
-}}
-
-如果决定不采取行动，请回复：
-{{
-    "action": "no_action",
-    "reasoning": "不行动的理由"
-}}
-
-可用的目标ID：
-- 帖子ID: {post['post_id']}
-"""
-
-        if comments:
-            prompt += "- 评论ID:\n"
-            for comment in comments:
-                prompt += f"  * {comment['comment_id']}\n"
-                for sub in comment.get('sub_comments', []):
-                    prompt += f"    - {sub['comment_id']}\n"
-
-        # 将prompt持续输出到一个txt文件中
-        with open("user_behavior_prompt.txt", "a", encoding="utf-8") as f:
-            f.write(f"\n\n=== 时间戳: {datetime.now().strftime('%H:%M:%S')} ===\n")
-            f.write(prompt)
-            f.write("\n" + "="*50 + "\n")
-
-        return prompt
 
     def _build_thinking_prompt(
         self,
@@ -597,7 +430,7 @@ class UserBehaviorSimulator:
 请根据用户画像和当前环境，假设你是该用户，判断是否采取行动以及采取什么行动。
 通常根据用户活跃度越低，越可能不采取行动
 而若是行动，行为倾向高低一般为：点赞 > 评论 = 回复
-评论一般不超过30个字，而且要符合网络用户语境
+评论一般不超过30个字，而且要符合网络用户语境和表达，且更符合用户自身思考，不要一昧从众和模仿别人的内容
 
 1. 仔细阅读帖子内容和已有评论
 2. 结合你的用户画像和历史记忆进行思考
@@ -611,6 +444,8 @@ class UserBehaviorSimulator:
 - target_id: 目标ID（如果是点赞/评论帖子，使用上面提供的帖子ID；如果是评论回复，使用对应的评论ID；必须使用上面提供的真实ID）
 - stance_after: 看完内容后的立场值（-1到1的数值）
 - sentiment_after: 看完内容后的情感值（-1到1的数值）
+
+请严格按照JSON格式回复。
 """
 
         return prompt
@@ -678,8 +513,6 @@ class UserBehaviorSimulator:
         }
 
         if action_type_str not in action_type_map:
-            print(f"未知的行为类型: {action_type_str}")
-            return None
             print(f"未知的行为类型: {action_type_str}")
             return None
 
@@ -786,52 +619,3 @@ class UserBehaviorSimulator:
                     target_id=post['post_id'],
                     round_number=round_number
                 )
-
-
-if __name__ == "__main__":
-    # 测试代码
-    async def test_simulator():
-        import sys
-        import os
-
-        # 添加项目根目录到路径
-        project_root = os.path.dirname(os.path.dirname(__file__))
-        sys.path.append(project_root)
-
-        from UserAgent.user_profile_manager import UserProfileManager
-        from SimulateEnv.interaction_core import InteractionEnvironment
-
-        # 创建测试环境
-        env = InteractionEnvironment("人工智能的发展对社会有什么影响？")
-
-        # 加载用户画像
-        manager = UserProfileManager()
-        manager.load_users_from_file("test_10.csv")  # 假设存在这个文件
-        users = manager.get_all_users()[:3]  # 使用前3个用户
-
-        # 创建模拟器
-        simulator = UserBehaviorSimulator()
-
-        # 模拟用户行为
-        env_state = env.get_environment_state()
-        actions = await simulator.simulate_multiple_users(users, env_state, 1)
-
-        print(f"生成了 {len(actions)} 个用户行为:")
-        for action in actions:
-            print(f"- 用户 {action.user_id}: {action.action_type.value} -> {action.target_id}")
-            if action.content:
-                print(f"  内容: {action.content}")
-
-        # 关闭客户端连接
-        await simulator.close()
-
-    # 运行测试 - 使用更安全的方式
-    import os
-    import sys
-
-    # 添加当前目录到路径以导入 async_utils
-    current_dir = os.path.dirname(__file__)
-    sys.path.append(current_dir)
-
-    from async_utils import run_async_simple
-    run_async_simple(test_simulator())

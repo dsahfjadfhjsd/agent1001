@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 社交媒体交互模拟引擎
 
@@ -12,6 +13,8 @@ from typing import Dict, List, Any, Optional
 from pathlib import Path
 import sys
 import os
+from tqdm.asyncio import tqdm as async_tqdm
+from tqdm import tqdm
 
 # 添加父目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -118,64 +121,6 @@ class SimulationEngine:
             print(f"会话不存在: {session_id}")
             return False
 
-    async def simulate_round(
-        self,
-        user_profiles: List[Dict[str, Any]],
-        save_round_data: bool = True
-    ) -> List[UserAction]:
-        """
-        模拟一轮用户交互
-
-        Args:
-            user_profiles: 参与本轮的用户画像列表
-            save_round_data: 是否保存本轮数据
-
-        Returns:
-            本轮生成的用户行为列表
-        """
-        if not self.current_environment or not self.current_session_id:
-            raise ValueError("没有活跃会话，请先创建或加载会话")
-
-        # 开始新一轮
-        self.current_environment.start_new_round()
-        round_number = self.current_environment.current_round
-
-        print(f"\n=== 开始第 {round_number} 轮模拟 ===")
-        print(f"参与用户数: {len(user_profiles)}")
-
-        # 获取当前环境状态
-        env_state = self.current_environment.get_environment_state()
-
-        # 并发模拟用户行为
-        start_time = datetime.now()
-        actions = await self.simulator.simulate_multiple_users(
-            user_profiles, env_state, round_number
-        )
-        simulation_time = (datetime.now() - start_time).total_seconds()
-
-        print(f"模拟耗时: {simulation_time:.2f}秒")
-        print(f"生成行为数: {len(actions)}")
-
-        # 将行为应用到环境
-        successful_actions = []
-        for action in actions:
-            if self.current_environment.add_action(action):
-                successful_actions.append(action)
-            else:
-                print(f"行为应用失败: {action.user_id} - {action.action_type.value}")
-
-        print(f"成功应用行为数: {len(successful_actions)}")
-
-        # 增量保存数据（每轮结束后立即保存）
-        if save_round_data:
-            save_path = self.storage.save_incremental_data(self.current_environment, self.current_session_id)
-            print(f"数据已增量保存到: {save_path}")
-
-        # 显示轮次结果
-        self._print_round_summary(round_number, successful_actions)
-
-        return successful_actions
-
     async def simulate_round_with_thinking(
         self,
         user_profiles: List[Dict[str, Any]],
@@ -200,9 +145,11 @@ class SimulationEngine:
 
         print(f"\n=== 开始第 {round_number} 轮模拟（增强模式） ===")
         print(f"参与用户数: {len(user_profiles)}")
+        print(f"📊 模拟进度：正在初始化用户记忆...")
 
         # 初始化用户记忆（如果还没有的话）
-        for user_profile in user_profiles:
+        print("📋 正在初始化用户记忆...")
+        for user_profile in tqdm(user_profiles, desc="初始化记忆", leave=False, ncols=80):
             user_id = user_profile['user_id']
             if user_id not in self.memory_manager._memory_cache:
                 self.memory_manager.initialize_user_memory(user_profile)
@@ -211,8 +158,9 @@ class SimulationEngine:
         env_state = self.current_environment.get_environment_state()
 
         # 为每个用户准备增强的画像（包含更新后的立场和情感值）
+        print("🔄 正在准备用户增强画像...")
         enhanced_user_profiles = []
-        for user_profile in user_profiles:
+        for user_profile in tqdm(user_profiles, desc="准备画像", leave=False, ncols=80):
             current_profile = self.memory_manager.get_user_current_profile(user_profile['user_id'])
             if current_profile:
                 enhanced_user_profiles.append(current_profile)
@@ -230,8 +178,9 @@ class SimulationEngine:
         print(f"生成思考结果数: {len(thinking_results)}")
 
         # 处理思考结果
+        print("📝 正在处理思考结果...")
         successful_actions = []
-        for thinking_result in thinking_results:
+        for thinking_result in tqdm(thinking_results, desc="处理结果", leave=False, ncols=80):
             if thinking_result and thinking_result.action:
                 # 将行为应用到环境
                 if self.current_environment.add_action(thinking_result.action):
@@ -281,86 +230,6 @@ class SimulationEngine:
         self._print_enhanced_round_summary(round_number, successful_actions, thinking_results)
 
         return successful_actions
-
-    async def run_simulation(
-        self,
-        user_profiles: List[Dict[str, Any]],
-        num_rounds: int = 3,
-        users_per_round: int = None,
-        randomize_users: bool = True
-    ) -> Dict[str, Any]:
-        """
-        运行完整的多轮模拟
-
-        Args:
-            user_profiles: 用户画像列表
-            num_rounds: 模拟轮数
-            users_per_round: 每轮参与的用户数，如果不指定则使用所有用户
-            randomize_users: 是否随机选择参与用户
-
-        Returns:
-            模拟结果摘要
-        """
-        if not self.current_environment or not self.current_session_id:
-            raise ValueError("没有活跃会话，请先创建或加载会话")
-
-        print(f"\n{'='*50}")
-        print(f"开始多轮模拟 - 会话ID: {self.current_session_id}")
-        print(f"总轮数: {num_rounds}")
-        print(f"用户池大小: {len(user_profiles)}")
-        print(f"{'='*50}")
-
-        all_actions = []
-        round_summaries = []
-
-        for round_num in range(num_rounds):
-            # 选择参与本轮的用户
-            if users_per_round and users_per_round < len(user_profiles):
-                if randomize_users:
-                    import random
-                    round_users = random.sample(user_profiles, users_per_round)
-                else:
-                    if (round_num * users_per_round < len(user_profiles)):
-                        round_users = user_profiles[(round_num - 1) * users_per_round:round_num * users_per_round]
-                    else:
-                        round_users = user_profiles[-users_per_round:]
-            else:
-                round_users = user_profiles
-
-            # 模拟本轮
-            round_actions = await self.simulate_round(round_users)
-            all_actions.extend(round_actions)
-
-            # 记录本轮摘要
-            round_summary = {
-                'round_number': self.current_environment.current_round,
-                'participants': len(round_users),
-                'actions_generated': len(round_actions),
-                'action_types': {},
-                'active_users': len(set(action.user_id for action in round_actions))
-            }
-
-            # 统计行为类型
-            for action in round_actions:
-                action_type = action.action_type.value
-                round_summary['action_types'][action_type] = round_summary['action_types'].get(action_type, 0) + 1
-
-            round_summaries.append(round_summary)
-
-            # 轮间休息（可以添加延迟模拟真实时间）
-            if round_num < num_rounds - 1:
-                await asyncio.sleep(0.1)  # 短暂延迟
-
-        # 生成最终摘要
-        final_summary = self._generate_final_summary(all_actions, round_summaries)
-
-        print(f"\n{'='*50}")
-        print("模拟完成！")
-        print(f"总行为数: {len(all_actions)}")
-        print(f"参与用户数: {final_summary['unique_users']}")
-        print(f"{'='*50}")
-
-        return final_summary
 
     def get_current_state(self) -> Optional[Dict[str, Any]]:
         """获取当前环境状态"""
@@ -496,14 +365,19 @@ class SimulationEngine:
         print(f"🧠 正在模拟 {len(user_profiles)} 个用户的思考过程...")
 
         # 包装任务以处理异常
-        async def safe_task(task):
+        async def safe_task(task, pbar):
             try:
-                return await task
+                result = await task
+                pbar.update(1)
+                return result
             except Exception as e:
+                pbar.update(1)
                 return e
 
-        safe_tasks = [safe_task(task) for task in tasks]
-        results = await asyncio.gather(*safe_tasks)
+        # 创建进度条
+        with tqdm(total=len(tasks), desc="用户思考模拟", unit="用户", ncols=80) as pbar:
+            safe_tasks = [safe_task(task, pbar) for task in tasks]
+            results = await asyncio.gather(*safe_tasks)
 
         # 过滤出成功的思考结果
         thinking_results = []
@@ -589,64 +463,3 @@ class SimulationEngine:
             认知变化统计信息
         """
         return self.memory_manager.get_statistics()
-
-
-if __name__ == "__main__":
-    # 测试代码
-    async def test_simulation():
-        # 创建模拟引擎
-        engine = SimulationEngine()
-
-        # 创建会话
-        session_id = engine.create_session("人工智能技术的发展对就业市场会产生什么影响？")
-
-        # 模拟用户画像（实际使用时应该从UserAgent模块加载）
-        test_users = [
-            {
-                'user_id': 'user_001',
-                'age_group': '25-35',
-                'gender': '男',
-                'occupation': '软件工程师',
-                'activity_level': '高',
-                'stance': '支持',
-                'sentiment': '积极'
-            },
-            {
-                'user_id': 'user_002',
-                'age_group': '35-45',
-                'gender': '女',
-                'occupation': '教师',
-                'activity_level': '中等',
-                'stance': '中立',
-                'sentiment': '中立'
-            },
-            {
-                'user_id': 'user_003',
-                'age_group': '18-25',
-                'gender': '男',
-                'occupation': '学生',
-                'activity_level': '中等',
-                'stance': '反对',
-                'sentiment': '消极'
-            }
-        ]
-
-        # 运行模拟
-        try:
-            summary = await engine.run_simulation(
-                user_profiles=test_users,
-                num_rounds=2,
-                users_per_round=2,
-                randomize_users=True
-            )
-
-            print("\n最终摘要:")
-            print(json.dumps(summary, indent=2, ensure_ascii=False))
-
-        except Exception as e:
-            print(f"模拟过程出错: {e}")
-            # 使用备用方案
-            print("使用备用模拟方案...")
-
-    # 运行测试
-    # asyncio.run(test_simulation())
