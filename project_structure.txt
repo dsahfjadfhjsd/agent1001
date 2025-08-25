@@ -5,6 +5,12 @@ agent1001/
 │   ├── .env
 │   └── user_profiles.json
 ├── Data/
+│   ├── integrated_data/
+│   │   ├── integrated_data_data_report.json
+│   │   ├── XMSU7D_data_report.json
+│   │   ├── XMSU7D_integrated_articles.csv
+│   │   └── XMSU7D_integrated_comments.csv
+│   ├── visualizations/
 │   └── XMSU7D/
 │       ├── douyin/
 │       ├── weibo/
@@ -12,27 +18,43 @@ agent1001/
 │       ├── xhs/
 │       └── zhihu/
 ├── DataProcess/
-│   └── __init__.py
+│   ├── __init__.py
+│   ├── data_sorter.py
+│   ├── organize_data.py
+│   └── paint.py
 ├── DisAgent/
 │   └── __init__.py
+├── Output/
+│   ├── exports/
+│   │   ├── multipost_20250825_192043/
+│   │   ├── session_20250825_112852_b1025d/
+│   │   └── session_20250825_113931_396ae2/
+│   └── prompt_exports/
+│       ├── multipost_20250825_192043/
+│       ├── prompts_20250825_113931.txt
+│       └── prompts_20250825_171704.txt
 ├── SimulateEnv/
-│   ├── data/
-│   │   └── exports/
 │   ├── __init__.py
-│   ├── async_utils.py
 │   ├── data_storage.py
-│   ├── demo.py
 │   ├── interaction_core.py
 │   ├── simulation_engine.py
 │   └── user_behavior_simulator.py
 ├── Test/
 ├── UserAgent/
 │   ├── generated_users/
+│   │   ├── demo_multi_post.csv
+│   │   └── demo_users_enhanced.csv
+│   ├── user_memories/
+│   │   ├── multipost_20250825_173435/
+│   │   └── multipost_20250825_192043/
 │   ├── __init__.py
 │   ├── simple_cli.py
+│   ├── user_memory_manager.py
 │   ├── user_profile_generator.py
 │   └── user_profile_manager.py
 ├── .python-version
+├── demo_enhanced.py
+├── demo_simple_multipost.py
+├── project_structure.txt
 ├── pyproject.toml
-├── tree.py
-└── user_behavior_prompt.txt
+└── tree.py
