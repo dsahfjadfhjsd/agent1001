@@ -31,12 +31,14 @@ class DataStorage:
             base_dir: 基础存储目录
         """
         if base_dir is None:
-            base_dir = os.path.join(os.path.dirname(__file__), 'data')
+            # 使用项目根目录下的Output文件夹
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            base_dir = os.path.join(project_root, 'Output')
 
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(exist_ok=True)
 
-        # 只使用exports目录，避免数据冗余
+        # 使用exports目录
         self.exports_dir = self.base_dir / 'exports'
         self.exports_dir.mkdir(exist_ok=True)
 
@@ -184,7 +186,7 @@ class DataStorage:
 
         return str(actions_path)
 
-    def save_incremental_data(self, env: InteractionEnvironment, session_id: str) -> str:
+    def save_incremental_data(self, env: InteractionEnvironment, session_id: str, batch_id: str = None) -> str:
         """
         增量保存环境数据（每轮结束后调用）
 
@@ -196,8 +198,11 @@ class DataStorage:
             保存的目录路径
         """
         # 创建会话目录
-        session_dir = self.exports_dir / session_id
-        session_dir.mkdir(exist_ok=True)
+        if batch_id == None:
+            session_dir = self.exports_dir / session_id
+        else:
+            session_dir = self.exports_dir / batch_id / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
 
         # 保存环境状态（覆盖保存）
         self.save_environment_state(env, session_id, session_dir)

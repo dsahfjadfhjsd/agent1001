@@ -49,9 +49,9 @@ class UserProfileGenerator:
 
     def _generate_unique_id(self) -> str:
         """生成唯一用户ID"""
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        # timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         unique_suffix = str(uuid.uuid4())[:8]
-        return f"USER_{timestamp}_{unique_suffix}"
+        return f"USER_{unique_suffix}"
 
     def _select_from_distribution(self, distribution: Dict[str, float]) -> str:
         """根据概率分布选择值"""

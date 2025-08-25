@@ -32,9 +32,9 @@ async def enhanced_demo():
 
     # 生成用户
     users_count = manager.load_users_from_file("demo_users_enhanced.csv")
-    users = manager.get_all_users()[:30]  # 只使用前50个用户进行演示
-    # filepath = manager.generate_users(100, "demo_users_enhanced.csv")
-    # users = manager.get_all_users()[:10]  # 只使用前10个用户进行演示
+    # users = manager.get_all_users()[:30]  # 只使用前50个用户进行演示
+    # filepath = manager.generate_users(10000, "demo_users_enhanced.csv")
+    users = manager.get_all_users()[:50]  # 只使用前30个用户进行演示
 
     print(f"✓ 加载了 {len(users)} 个用户用于演示")
 
@@ -50,11 +50,11 @@ async def enhanced_demo():
     print("-" * 30)
 
     config = SimulationConfig(
-        max_concurrent_requests=10,
+        max_concurrent_requests=5,
         action_probability=0.8,  # 提高行动概率以便看到更多效果
         comment_probability=0.5,
-        # export_prompts=True,  # 🔥 启用prompt导出功能
-        # prompt_export_dir="SimulateEnv/data/prompt_exports"  # prompt导出目录
+        export_prompts=True,  # 🔥 启用prompt导出功能
+        prompt_export_dir="Output/prompt_exports"  # prompt导出目录
     )
 
     engine = SimulationEngine(config)
@@ -74,12 +74,12 @@ async def enhanced_demo():
         # 运行2轮增强模拟
         all_actions = []
 
-        for round_num in range(1, 6):  # 运行5轮
+        for round_num in range(1, 4):  # 运行3轮
             print(f"\n--- 第 {round_num} 轮 ---")
 
             # 随机选择用户参与本轮
             import random
-            round_users = random.sample(users, 10)  # 每轮10个用户
+            round_users = random.sample(users, 10)  # 每轮20个用户
 
             # 使用增强模拟方法
             actions = await engine.simulate_round_with_thinking(round_users)

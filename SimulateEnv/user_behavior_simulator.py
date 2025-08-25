@@ -52,7 +52,7 @@ class SimulationConfig:
     comment_probability: float = 0.3  # 在决定行动时选择评论而非点赞的概率
     # 新增：Prompt导出配置
     export_prompts: bool = False  # 是否导出所有prompts到文件
-    prompt_export_dir: str = "data/prompt_exports"  # prompt导出目录
+    prompt_export_dir: str = "Output/prompt_exports"  # prompt导出目录
 
 
 class UserBehaviorSimulator:
@@ -90,6 +90,44 @@ class UserBehaviorSimulator:
                 await self.client.close()
         except:
             pass
+
+    def _select_comments_for_display(self, comments):
+        """
+        智能选择要展示的评论：
+        - 按点赞数和回复数排序的前3个热门评论
+        - 随机选择2个其他评论
+        - 总共返回最多5个评论
+        """
+        if not comments:
+            return []
+
+        # 计算每个评论的热度分数（点赞数 + 回复数 * 2）
+        def get_heat_score(comment):
+            likes = comment.get('likes', 0)
+            reply_count = len(comment.get('sub_comments', []))
+            return likes + reply_count * 2
+
+        # 按热度排序，获取前3个热门评论
+        sorted_comments = sorted(comments, key=get_heat_score, reverse=True)
+        hot_comments = sorted_comments[:3]
+
+        # 如果评论总数不足5个，直接返回所有评论
+        if len(comments) <= 5:
+            return comments[:5]
+
+        # 从剩余评论中随机选择2个
+        remaining_comments = [c for c in comments if c not in hot_comments]
+        if len(remaining_comments) >= 2:
+            import random
+            random_comments = random.sample(remaining_comments, 2)
+        else:
+            random_comments = remaining_comments
+
+        # 合并并返回（保持原始顺序）
+        selected_ids = {c['comment_id'] for c in hot_comments + random_comments}
+        result = [c for c in comments if c['comment_id'] in selected_ids]
+
+        return result[:5]  # 确保最多5个
 
     def _init_prompt_export(self):
         """初始化prompt导出功能"""
@@ -320,7 +358,30 @@ class UserBehaviorSimulator:
                     messages=[
                         {
                             "role": "system",
-                            "content": "你是一个社交媒体用户行为模拟器。根据用户画像、当前环境和历史记忆，模拟用户的思考过程并决定行为。请严格按照JSON格式回复。"
+                            "content": """你是一个社交媒体用户行为模拟器。根据用户画像、当前环境和历史记忆，模拟用户的思考过程并决定行为。
+
+用户行为决策规则：
+- 根据活跃度：活跃度越低，越可能不采取行动
+- 行为偏好：点赞 > 回复评论 > 评论帖子
+- 当已有评论时，优先考虑与其他用户互动（回复评论或点赞评论）
+- 评论内容不超过30字，要符合网络用户语境，体现个人观点，避免重复他人内容
+
+可选的行为类型说明：
+- like_post: 点赞帖子，target_id使用帖子ID
+- comment_post: 评论帖子，target_id使用帖子ID，需要提供action_content
+- like_comment: 点赞评论，target_id使用评论ID
+- comment_comment: 回复评论，target_id使用要回复的评论ID，需要提供action_content
+- no_action: 不采取任何行动
+
+特别提醒：当存在评论时，请优先考虑comment_comment（回复评论）或like_comment（点赞评论），这能促进用户间的互动交流。
+
+请严格按照JSON格式回复，包含：
+- thinking_process: 详细的思考过程（100字以内）
+- action_type: 行为类型（like_post/comment_post/like_comment/comment_comment/no_action）
+- action_content: 评论内容（仅当action_type为comment_post或comment_comment时需要）
+- target_id: 目标ID（如果是点赞/评论帖子，使用帖子ID；如果是点赞/回复评论，使用评论ID；必须使用真实ID）
+- stance_after: 看完内容后的立场值（-1到1的数值）
+- sentiment_after: 看完内容后的情感值（-1到1的数值）"""
                         },
                         {"role": "user", "content": prompt}
                     ],
@@ -406,7 +467,10 @@ class UserBehaviorSimulator:
 """
 
         if comments:
-            for i, comment in enumerate(comments[:5], 1):
+            # 选择评论：按点赞数和回复数排序的前3个 + 随机2个
+            selected_comments = self._select_comments_for_display(comments)
+
+            for i, comment in enumerate(selected_comments, 1):
                 sub_comment_info = ""
                 if comment.get('sub_comments'):
                     sub_count = len(comment['sub_comments'])
@@ -415,6 +479,12 @@ class UserBehaviorSimulator:
 
                 prompt += f"{i}. 评论ID：{comment['comment_id']} 【用户{comment['author_id'][-8:]}】: {comment['content']} "
                 prompt += f"[点赞数: {comment['likes']}] {sub_comment_info}\n"
+
+                # 显示该评论的前2条二级评论
+                if comment.get('sub_comments'):
+                    for j, sub_comment in enumerate(comment['sub_comments'][:2], 1):
+                        prompt += f"    └─ 回复{j}：【用户{sub_comment['author_id'][-8:]}】{sub_comment['content']} "
+                        prompt += f"[点赞数: {sub_comment.get('likes', 0)}]\n"
         else:
             prompt += "暂无评论\n"
 
@@ -428,24 +498,12 @@ class UserBehaviorSimulator:
         prompt += f"""
 
 请根据用户画像和当前环境，假设你是该用户，判断是否采取行动以及采取什么行动。
-通常根据用户活跃度越低，越可能不采取行动
-而若是行动，行为倾向高低一般为：点赞 > 评论 = 回复
-评论一般不超过30个字，而且要符合网络用户语境和表达，且更符合用户自身思考，不要一昧从众和模仿别人的内容
 
+思考步骤：
 1. 仔细阅读帖子内容和已有评论
 2. 结合你的用户画像和历史记忆进行思考
 3. 考虑看到这些内容后立场和情感的可能变化
 4. 决定是否要采取行动以及采取什么行动
-
-请输出JSON格式，包含：
-- thinking_process: 详细的思考过程（100字以内）
-- action_type: 行为类型（like_post/comment_post/comment_comment/no_action）
-- action_content: 评论内容
-- target_id: 目标ID（如果是点赞/评论帖子，使用上面提供的帖子ID；如果是评论回复，使用对应的评论ID；必须使用上面提供的真实ID）
-- stance_after: 看完内容后的立场值（-1到1的数值）
-- sentiment_after: 看完内容后的情感值（-1到1的数值）
-
-请严格按照JSON格式回复。
 """
 
         return prompt
@@ -468,7 +526,10 @@ class UserBehaviorSimulator:
 
         # 添加评论内容
         comments = environment_state['primary_comments']
-        for comment in comments[:5]:  # 限制用户看到的评论数量
+        # 使用智能评论选择
+        selected_comments = self._select_comments_for_display(comments)
+
+        for comment in selected_comments:  # 使用智能选择的评论
             content_seen.append(f"评论：{comment['content']}")
 
             # 添加子评论
@@ -574,7 +635,7 @@ class UserBehaviorSimulator:
         # 随机选择行为类型
         if random.random() < self.config.comment_probability:
             # 评论行为
-            if comments and random.random() < 0.3:  # 30%概率回复评论
+            if comments and random.random() < 0.5:  # 50%概率回复评论（提高概率）
                 comment = random.choice(comments)
                 return UserAction(
                     action_id="",

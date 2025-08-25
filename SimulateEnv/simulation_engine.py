@@ -55,6 +55,9 @@ class SimulationEngine:
         self.storage = DataStorage(storage_dir)
         self.simulator = UserBehaviorSimulator(self.config)
 
+        # 当前批次ID（用于分离不同模拟）
+        self.current_batch_id: Optional[str] = None
+
         # 添加用户记忆管理器
         memory_dir = os.path.join(storage_dir or 'data', 'user_memories') if storage_dir else None
         self.memory_manager = UserMemoryManager(memory_dir)
@@ -71,20 +74,25 @@ class SimulationEngine:
         except:
             pass
 
-    def create_session(self, post_content: str, session_id: str = None) -> str:
+    def create_session(self, post_content: str, session_id: str = None, batch_id: str = None) -> str:
         """
         创建新的模拟会话
 
         Args:
             post_content: 初始帖子内容
             session_id: 会话ID，如果不提供则自动生成
+            batch_id: 批次ID，用于多批次模拟的分离
 
         Returns:
             会话ID
         """
         if session_id is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            session_id = f"session_{timestamp}_{uuid.uuid4().hex[:6]}"
+            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # session_id = f"session_{timestamp}_{uuid.uuid4().hex[:6]}"
+            session_id = f"session_{uuid.uuid4().hex[:6]}"
+
+        # 设置当前batch_id
+        self.current_batch_id = batch_id
 
         # 创建环境
         self.current_environment = InteractionEnvironment(post_content)
@@ -94,7 +102,7 @@ class SimulationEngine:
         self.storage._session_created_at = datetime.now().isoformat()
 
         # 保存初始状态
-        self.storage.save_incremental_data(self.current_environment, session_id)
+        self.storage.save_incremental_data(self.current_environment, session_id, batch_id)
 
         print(f"创建新会话: {session_id}")
         print(f"初始帖子: {post_content}")
@@ -223,7 +231,7 @@ class SimulationEngine:
 
         # 增量保存数据（每轮结束后立即保存）
         if save_round_data:
-            save_path = self.storage.save_incremental_data(self.current_environment, self.current_session_id)
+            save_path = self.storage.save_incremental_data(self.current_environment, self.current_session_id, self.current_batch_id)
             print(f"数据已增量保存到: {save_path}")
 
         # 显示轮次结果（包含认知变化信息）
