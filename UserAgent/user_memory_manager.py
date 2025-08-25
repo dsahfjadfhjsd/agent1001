@@ -41,18 +41,27 @@ class UserMemoryRecord:
 class UserMemoryManager:
     """用户记忆管理器"""
 
-    def __init__(self, memory_dir: str = None):
+    def __init__(self, memory_dir: str = None, batch_id: str = None):
         """
         初始化记忆管理器
 
         Args:
             memory_dir: 记忆文件存储目录
+            batch_id: 批次ID，用于分离不同批次的用户记忆
         """
         if memory_dir is None:
             memory_dir = os.path.join(os.path.dirname(__file__), 'user_memories')
 
-        self.memory_dir = Path(memory_dir)
-        self.memory_dir.mkdir(exist_ok=True)
+        self.base_memory_dir = Path(memory_dir)
+        self.batch_id = batch_id
+
+        # 如果指定了batch_id，创建批次专用子目录
+        if batch_id:
+            self.memory_dir = self.base_memory_dir / batch_id
+        else:
+            self.memory_dir = self.base_memory_dir
+
+        self.memory_dir.mkdir(parents=True, exist_ok=True)
 
         # 内存缓存
         self._memory_cache: Dict[str, UserMemoryRecord] = {}

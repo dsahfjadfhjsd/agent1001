@@ -71,6 +71,7 @@ class UserAction:
     content: Optional[str] = None  # 评论内容
     created_at: datetime = field(default_factory=datetime.now)
     round_number: int = 1
+    comment_id: Optional[str] = None  # 新创建的评论ID（仅当创建评论时有值）
 
     def __post_init__(self):
         if not self.action_id:
@@ -113,14 +114,16 @@ class InteractionEnvironment:
                 self._like_post(action.user_id, action.target_id)
             elif action.action_type == ActionType.COMMENT_POST:
                 comment_id = self._comment_post(action.user_id, action.target_id, action.content)
-                # 更新action的target_id为新生成的comment_id
-                action.target_id = comment_id
+                # 设置comment_id为新生成的评论ID，target_id保持为帖子ID
+                action.comment_id = comment_id
             elif action.action_type == ActionType.LIKE_COMMENT:
                 self._like_comment(action.user_id, action.target_id)
             elif action.action_type == ActionType.COMMENT_COMMENT:
-                comment_id = self._comment_comment(action.user_id, action.target_id, action.content)
-                # 更新action的target_id为新生成的comment_id
-                action.target_id = comment_id
+                # 保存原始的target_id（被回复的评论ID）
+                parent_comment_id = action.target_id
+                comment_id = self._comment_comment(action.user_id, parent_comment_id, action.content)
+                # 设置comment_id为新生成的回复评论ID，target_id保持为被回复的评论ID
+                action.comment_id = comment_id
 
             # 记录行为
             action.round_number = self.current_round

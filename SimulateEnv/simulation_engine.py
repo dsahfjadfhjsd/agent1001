@@ -58,9 +58,10 @@ class SimulationEngine:
         # 当前批次ID（用于分离不同模拟）
         self.current_batch_id: Optional[str] = None
 
-        # 添加用户记忆管理器
+        # 添加用户记忆管理器（初始化时不设置batch_id）
         memory_dir = os.path.join(storage_dir or 'data', 'user_memories') if storage_dir else None
-        self.memory_manager = UserMemoryManager(memory_dir)
+        self.base_memory_dir = memory_dir
+        self.memory_manager = None  # 将在create_session时初始化
 
         # 当前活跃会话
         self.current_session_id: Optional[str] = None
@@ -93,6 +94,9 @@ class SimulationEngine:
 
         # 设置当前batch_id
         self.current_batch_id = batch_id
+
+        # 初始化带batch_id的用户记忆管理器
+        self.memory_manager = UserMemoryManager(self.base_memory_dir, batch_id)
 
         # 创建环境
         self.current_environment = InteractionEnvironment(post_content)

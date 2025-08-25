@@ -3,6 +3,7 @@ Data/
 __pycache__/
 .venv/
 output*/
+Output/
 Test/
 UserAgent/generated_users/
 Config/

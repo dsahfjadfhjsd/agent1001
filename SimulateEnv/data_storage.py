@@ -174,8 +174,11 @@ class DataStorage:
 
             # 如果是评论相关行为，添加comment_id
             if action.action_type in [ActionType.COMMENT_POST, ActionType.COMMENT_COMMENT, ActionType.LIKE_COMMENT]:
-                # 对于所有评论相关行为，comment_id就是target_id（如果是评论ID）
-                action_data['comment_id'] = action.target_id if action.target_id.startswith('comment_') else ''
+                # 优先使用action.comment_id，如果没有则从target_id推断
+                if hasattr(action, 'comment_id') and action.comment_id:
+                    action_data['comment_id'] = action.comment_id
+                else:
+                    action_data['comment_id'] = action.target_id if action.target_id.startswith('comment_') else ''
             else:
                 action_data['comment_id'] = ''
 
@@ -258,7 +261,11 @@ class DataStorage:
 
             # 如果是评论相关行为，添加comment_id
             if action.action_type in [ActionType.COMMENT_POST, ActionType.COMMENT_COMMENT, ActionType.LIKE_COMMENT]:
-                action_data['comment_id'] = action.target_id if action.target_id.startswith('comment_') else ''
+                # 优先使用action.comment_id，如果没有则从target_id推断
+                if hasattr(action, 'comment_id') and action.comment_id:
+                    action_data['comment_id'] = action.comment_id
+                else:
+                    action_data['comment_id'] = action.target_id if action.target_id.startswith('comment_') else ''
             else:
                 action_data['comment_id'] = ''
 
