@@ -75,62 +75,62 @@ class SimulationEngine:
         except:
             pass
 
-    def create_session(self, post_content: str, session_id: str = None, batch_id: str = None) -> str:
+    def create_session(self, post_content: str, post_id: str = None, batch_id: str = None) -> str:
         """
-        创建新的模拟会话
+        创建新的模拟会话（基于post_id）
 
         Args:
             post_content: 初始帖子内容
-            session_id: 会话ID，如果不提供则自动生成
-            batch_id: 批次ID，用于多批次模拟的分离
+            post_id: 帖子ID，如果不提供则自动生成，将作为主要的标识符
+            batch_id: 批次ID，用于多批次模拟的分离（可选）
 
         Returns:
-            会话ID
+            post_id （作为会话标识）
         """
-        if session_id is None:
-            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            # session_id = f"session_{timestamp}_{uuid.uuid4().hex[:6]}"
-            session_id = f"session_{uuid.uuid4().hex[:6]}"
+        if post_id is None:
+            post_id = f"post_{uuid.uuid4().hex[:6]}"
 
         # 设置当前batch_id
+        previous_batch_id = self.current_batch_id
         self.current_batch_id = batch_id
 
-        # 初始化带batch_id的用户记忆管理器
-        self.memory_manager = UserMemoryManager(self.base_memory_dir, batch_id)
+        # 只在第一次或batch_id改变时初始化用户记忆管理器
+        if self.memory_manager is None or previous_batch_id != batch_id:
+            self.memory_manager = UserMemoryManager(self.base_memory_dir, batch_id)
 
         # 创建环境
-        self.current_environment = InteractionEnvironment(post_content)
-        self.current_session_id = session_id
+        self.current_environment = InteractionEnvironment(post_content, post_id=post_id)
+        self.current_session_id = post_id  # 使用post_id作为session_id
 
         # 初始化保存时间戳
         self.storage._session_created_at = datetime.now().isoformat()
 
-        # 保存初始状态
-        self.storage.save_incremental_data(self.current_environment, session_id, batch_id)
+        # 保存初始状态（使用post_id作为目录名）
+        self.storage.save_incremental_data(self.current_environment, post_id, batch_id)
 
-        print(f"创建新会话: {session_id}")
+        print(f"创建新会话: {post_id}")
         print(f"初始帖子: {post_content}")
 
-        return session_id
+        return post_id
 
-    def load_session(self, session_id: str) -> bool:
+    def load_session(self, post_id: str) -> bool:
         """
-        加载已存在的会话
+        加载已存在的会话（基于post_id）
 
         Args:
-            session_id: 会话ID
+            post_id: 帖子ID
 
         Returns:
             是否加载成功
         """
-        environment = self.storage.load_environment(session_id)
+        environment = self.storage.load_environment(post_id)
         if environment:
             self.current_environment = environment
-            self.current_session_id = session_id
-            print(f"成功加载会话: {session_id}")
+            self.current_session_id = post_id
+            print(f"成功加载会话: {post_id}")
             return True
         else:
-            print(f"会话不存在: {session_id}")
+            print(f"会话不存在: {post_id}")
             return False
 
     async def simulate_round_with_thinking(
@@ -249,24 +249,24 @@ class SimulationEngine:
             return self.current_environment.get_environment_state()
         return None
 
-    def get_session_summary(self, session_id: str = None) -> Optional[Dict[str, Any]]:
-        """获取会话摘要"""
-        target_session = session_id or self.current_session_id
-        if target_session:
-            return self.storage.get_session_summary(target_session)
+    def get_session_summary(self, post_id: str = None) -> Optional[Dict[str, Any]]:
+        """获取会话摘要（基于post_id）"""
+        target_post_id = post_id or self.current_session_id
+        if target_post_id:
+            return self.storage.get_session_summary(target_post_id)
         return None
 
     def list_all_sessions(self) -> List[str]:
-        """列出所有会话"""
+        """列出所有会话（即所有post_id）"""
         return self.storage.list_sessions()
 
-    def export_session(self, session_id: str = None, export_dir: str = None) -> str:
-        """导出会话数据"""
-        target_session = session_id or self.current_session_id
-        if not target_session:
-            raise ValueError("没有指定会话ID")
+    def export_session(self, post_id: str = None, export_dir: str = None) -> str:
+        """导出会话数据（基于post_id）"""
+        target_post_id = post_id or self.current_session_id
+        if not target_post_id:
+            raise ValueError("没有指定post_id")
 
-        return self.storage.export_session_data(target_session, export_dir)
+        return self.storage.export_session_data(target_post_id, export_dir)
 
     def _print_round_summary(self, round_number: int, actions: List[UserAction]):
         """打印轮次摘要"""
@@ -320,7 +320,7 @@ class SimulationEngine:
             unique_users.add(action.user_id)
 
         return {
-            'session_id': self.current_session_id,
+            'post_id': self.current_session_id,  # 使用post_id替代session_id
             'total_actions': len(all_actions),
             'unique_users': len(unique_users),
             'total_rounds': len(round_summaries),

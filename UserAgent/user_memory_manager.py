@@ -78,7 +78,13 @@ class UserMemoryManager:
         """
         user_id = user_profile['user_id']
 
-        # 创建记忆记录
+        # 检查用户是否已经存在
+        existing_record = self._get_user_memory(user_id)
+        if existing_record:
+            # 用户已存在，直接返回
+            return user_id
+
+        # 创建新的记忆记录
         memory_record = UserMemoryRecord(
             user_id=user_id,
             original_profile=user_profile.copy(),

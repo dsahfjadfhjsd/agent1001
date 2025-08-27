@@ -82,13 +82,13 @@ class DataStorage:
 
         return str(session_dir)
 
-    def save_environment_state(self, env: InteractionEnvironment, session_id: str, session_dir: Path) -> str:
+    def save_environment_state(self, env: InteractionEnvironment, post_id: str, session_dir: Path) -> str:
         """
         保存环境状态快照
 
         Args:
             env: 交互环境实例
-            session_id: 会话ID
+            post_id: 帖子ID
             session_dir: 会话目录
 
         Returns:
@@ -145,13 +145,13 @@ class DataStorage:
 
         return str(post_path)
 
-    def save_user_actions(self, actions: List[UserAction], session_id: str, session_dir: Path) -> str:
+    def save_user_actions(self, actions: List[UserAction], post_id: str, session_dir: Path) -> str:
         """
         保存用户行为数据
 
         Args:
             actions: 用户行为列表
-            session_id: 会话ID
+            post_id: 帖子ID
             session_dir: 会话目录
 
         Returns:
@@ -189,34 +189,35 @@ class DataStorage:
 
         return str(actions_path)
 
-    def save_incremental_data(self, env: InteractionEnvironment, session_id: str, batch_id: str = None) -> str:
+    def save_incremental_data(self, env: InteractionEnvironment, post_id: str, batch_id: str = None) -> str:
         """
         增量保存环境数据（每轮结束后调用）
 
         Args:
             env: 交互环境实例
-            session_id: 会话ID
+            post_id: 帖子ID（作为主要标识符）
+            batch_id: 批次ID（可选，用于进一步分组）
 
         Returns:
             保存的目录路径
         """
-        # 创建会话目录
-        if batch_id == None:
-            session_dir = self.exports_dir / session_id
+        # 创建目录结构：如果有batch_id则是 batch_id/post_id，否则直接是post_id
+        if batch_id:
+            session_dir = self.exports_dir / batch_id / post_id
         else:
-            session_dir = self.exports_dir / batch_id / session_id
+            session_dir = self.exports_dir / post_id
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # 保存环境状态（覆盖保存）
-        self.save_environment_state(env, session_id, session_dir)
+        self.save_environment_state(env, post_id, session_dir)
 
         # 增量保存用户行为（追加模式）
         self._save_user_actions_incremental(env.actions, session_dir)
 
         # 保存/更新环境基本信息
         env_info = {
-            'session_id': session_id,
-            'post_id': env.post.post_id,
+            'post_id': post_id,  # 使用post_id作为主要标识符
+            'batch_id': batch_id,  # 记录batch_id（如果有的话）
             'post_content': env.post.content,
             'total_rounds': env.current_round,
             'total_actions': len(env.actions),
@@ -272,24 +273,34 @@ class DataStorage:
             actions_data.append(action_data)
 
         actions_path = session_dir / "all_actions.csv"
-        # 覆盖保存，因为我们要保存所有行为
-        self._save_to_csv(actions_path, actions_data, mode='w')
+        # 追加保存，保持所有轮次的行为记录
+        self._save_to_csv(actions_path, actions_data, mode='a')
 
-    def load_environment(self, session_id: str) -> Optional[InteractionEnvironment]:
+    def load_environment(self, post_id: str) -> Optional[InteractionEnvironment]:
         """
         从文件加载环境数据
 
         Args:
-            session_id: 会话ID
+            post_id: 帖子ID
 
         Returns:
             交互环境实例，如果不存在则返回None
         """
-        session_dir = self.exports_dir / session_id
+        # 首先尝试直接查找
+        session_dir = self.exports_dir / post_id
         info_path = session_dir / "session_info.json"
 
+        # 如果直接查找不到，尝试在所有batch目录中查找
         if not info_path.exists():
-            return None
+            for batch_dir in self.exports_dir.iterdir():
+                if batch_dir.is_dir():
+                    potential_path = batch_dir / post_id / "session_info.json"
+                    if potential_path.exists():
+                        session_dir = batch_dir / post_id
+                        info_path = potential_path
+                        break
+            else:
+                return None
 
         # 加载环境基本信息
         with open(info_path, 'r', encoding='utf-8') as f:
@@ -298,7 +309,7 @@ class DataStorage:
         # 创建环境实例
         env = InteractionEnvironment(
             post_content=env_info['post_content'],
-            post_id=env_info['post_id']
+            post_id=env_info.get('post_id', post_id)
         )
         env.current_round = env_info['total_rounds']
 
@@ -308,7 +319,7 @@ class DataStorage:
             actions_df = pd.read_csv(actions_path)
             for _, row in actions_df.iterrows():
                 action = UserAction(
-                    action_id=row['action_id'],
+                    action_id=row.get('action_id', ''),
                     user_id=row['user_id'],
                     action_type=ActionType(row['action_type']),
                     target_id=row['target_id'],
@@ -320,20 +331,23 @@ class DataStorage:
 
         return env
 
-    def load_user_actions(self, session_id: str, user_id: str = None) -> List[Dict[str, Any]]:
+    def load_user_actions(self, post_id: str, user_id: str = None) -> List[Dict[str, Any]]:
         """
         加载用户行为数据
 
         Args:
-            session_id: 会话ID
+            post_id: 帖子ID
             user_id: 特定用户ID，如果不指定则返回所有用户
 
         Returns:
             用户行为数据列表
         """
-        session_dir = self.exports_dir / session_id
-        actions_path = session_dir / "all_actions.csv"
+        # 查找post_id对应的目录
+        session_dir = self._find_post_directory(post_id)
+        if not session_dir:
+            return []
 
+        actions_path = session_dir / "all_actions.csv"
         if not actions_path.exists():
             return []
 
@@ -344,20 +358,23 @@ class DataStorage:
 
         return df.to_dict('records')
 
-    def load_round_actions(self, session_id: str, round_number: int) -> List[Dict[str, Any]]:
+    def load_round_actions(self, post_id: str, round_number: int) -> List[Dict[str, Any]]:
         """
         加载指定轮次的行为数据
 
         Args:
-            session_id: 会话ID
+            post_id: 帖子ID
             round_number: 轮次号
 
         Returns:
             行为数据列表
         """
-        session_dir = self.exports_dir / session_id
-        actions_path = session_dir / "all_actions.csv"
+        # 查找post_id对应的目录
+        session_dir = self._find_post_directory(post_id)
+        if not session_dir:
+            return []
 
+        actions_path = session_dir / "all_actions.csv"
         if not actions_path.exists():
             return []
 
@@ -366,19 +383,22 @@ class DataStorage:
 
         return df.to_dict('records')
 
-    def get_session_summary(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_session_summary(self, post_id: str) -> Optional[Dict[str, Any]]:
         """
         获取会话摘要信息
 
         Args:
-            session_id: 会话ID
+            post_id: 帖子ID
 
         Returns:
             会话摘要字典
         """
-        session_dir = self.exports_dir / session_id
-        info_path = session_dir / "session_info.json"
+        # 查找post_id对应的目录
+        session_dir = self._find_post_directory(post_id)
+        if not session_dir:
+            return None
 
+        info_path = session_dir / "session_info.json"
         if not info_path.exists():
             return None
 
@@ -401,9 +421,48 @@ class DataStorage:
         return env_info
 
     def list_sessions(self) -> List[str]:
-        """列出所有会话ID"""
-        session_dirs = [d for d in self.exports_dir.iterdir() if d.is_dir()]
-        return [d.name for d in session_dirs]
+        """列出所有post_id"""
+        post_ids = []
+
+        # 查找根目录下的post_id
+        for item in self.exports_dir.iterdir():
+            if item.is_dir():
+                info_path = item / "session_info.json"
+                if info_path.exists():
+                    post_ids.append(item.name)
+                else:
+                    # 检查是否是batch目录
+                    for sub_item in item.iterdir():
+                        if sub_item.is_dir():
+                            sub_info_path = sub_item / "session_info.json"
+                            if sub_info_path.exists():
+                                post_ids.append(sub_item.name)
+
+        return list(set(post_ids))  # 去重
+
+    def _find_post_directory(self, post_id: str) -> Optional[Path]:
+        """
+        查找post_id对应的目录
+
+        Args:
+            post_id: 帖子ID
+
+        Returns:
+            目录路径，如果不存在返回None
+        """
+        # 首先尝试直接查找
+        session_dir = self.exports_dir / post_id
+        if (session_dir / "session_info.json").exists():
+            return session_dir
+
+        # 在所有batch目录中查找
+        for batch_dir in self.exports_dir.iterdir():
+            if batch_dir.is_dir():
+                potential_dir = batch_dir / post_id
+                if (potential_dir / "session_info.json").exists():
+                    return potential_dir
+
+        return None
 
     def _save_to_csv(self, file_path: Path, data: List[Dict[str, Any]], mode: str = 'w'):
         """
@@ -428,18 +487,20 @@ class DataStorage:
                 writer.writeheader()
             writer.writerows(data)
 
-    def export_session_data(self, session_id: str, export_dir: str = None) -> str:
+    def export_session_data(self, post_id: str, export_dir: str = None) -> str:
         """
         获取会话数据目录路径（数据已经存储在exports目录中）
 
         Args:
-            session_id: 会话ID
+            post_id: 帖子ID
             export_dir: 导出目录，如果指定则复制到该目录
 
         Returns:
             导出目录路径
         """
-        session_dir = self.exports_dir / session_id
+        session_dir = self._find_post_directory(post_id)
+        if not session_dir:
+            raise FileNotFoundError(f"找不到post_id为 {post_id} 的会话数据")
 
         if export_dir is None:
             # 直接返回现有的会话目录路径
