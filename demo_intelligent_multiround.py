@@ -94,20 +94,26 @@ class IntelligentMultiRoundSimulation:
         print(f"✅ 加载了 {len(posts)} 个帖子用于模拟")
         return posts
 
-    def initialize_simulation(self, posts: List[Dict[str, Any]], total_users: int = 100):
+    def initialize_simulation(self, posts: List[Dict[str, Any]], total_users: int = 100, user_manager: UserProfileManager = None):
         """
         初始化模拟环境
 
         Args:
             posts: 帖子列表
             total_users: 总用户数量
+            user_manager: 用户管理器
         """
         print(f"\n🎯 初始化模拟环境...")
 
         # 生成用户
-        user_manager = UserProfileManager()
-        user_manager.generate_users(count=total_users, filename=f"intelligent_sim_{self.batch_id}.csv")
-        all_users = user_manager.get_all_users()
+        if user_manager is None:
+            user_manager = UserProfileManager()
+            user_manager.generate_users(count=total_users, filename=f"intelligent_sim_{self.batch_id}.csv")
+            all_users = user_manager.get_all_users()
+        else:
+            all_users = user_manager.get_all_users()
+            if len(all_users) > total_users:
+                all_users = all_users[:total_users]
 
         # 使用分发器初始化批次
         self.distributor.initialize_batch(posts, all_users)
@@ -399,9 +405,12 @@ async def main():
     )
 
     # 初始化模拟环境
+    user_manager = UserProfileManager()
+    users_count = user_manager.load_users_from_file("demo_users_enhanced.csv")
     simulation.initialize_simulation(
         posts=posts,
-        total_users=10  # 10个用户
+        total_users=10,  # 10个用户
+        user_manager=user_manager
     )
 
     # 创建模拟配置
@@ -409,16 +418,17 @@ async def main():
         max_concurrent_requests=4,
         action_probability=0.7,
         comment_probability=0.5,
-        # export_prompts=True
+        export_prompts=True
+
     )
 
     # 运行3轮模拟
     results = await simulation.run_multiple_rounds(
-        num_rounds=2,
-        posts_per_round=2,    # 每轮4个帖子
-        users_per_post=4,     # 每个帖子8个用户
-        rounds_per_post=1,    # 每个帖子内1轮交互
-        config=config
+        num_rounds=2,         # 总共运行次数
+        posts_per_round=2,    # 每轮帖子数
+        users_per_post=4,     # 每个帖子每轮曝光用户数
+        rounds_per_post=1,    # 每个帖子每轮和曝光用户交互次数
+        config=config         # 模拟配置
     )
 
     # 显示最终摘要
