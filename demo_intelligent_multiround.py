@@ -86,8 +86,10 @@ class IntelligentMultiRoundSimulation:
                 'content': row['content'],
                 'platform': row.get('platform', 'unknown'),
                 'title': row.get('title', ''),
-                'original_likes': row.get('like_count', 0),
-                'original_comments': row.get('comment_count', 0)
+                # 'original_likes': row.get('like_count', 0),
+                # 'original_comments': row.get('comment_count', 0)
+                'original_likes': 0,
+                'original_comments': 0
             }
             posts.append(post)
 
@@ -158,6 +160,9 @@ class IntelligentMultiRoundSimulation:
                 export_prompts=True,
                 prompt_export_dir=f"Output/prompt_exports/{self.batch_id}/round_{round_number}"
             )
+
+        if config.prompt_export_dir is None and config.export_prompts:
+            config.prompt_export_dir = f"Output/prompt_exports/intel_multi_{self.batch_id}/round_{round_number}"
 
         # 创建引擎
         engine = SimulationEngine(config)
@@ -360,12 +365,6 @@ class IntelligentMultiRoundSimulation:
         print(f"   模拟结果: Output/exports/{results['batch_id']}/simulation_results.json")
         print(f"   用户记忆: UserAgent/user_memories/{results['batch_id']}/")
 
-        print(f"\n💡 架构特色:")
-        print(f"   ✅ 基于post_id的智能内容管理")
-        print(f"   ✅ 热门度驱动的内容分发算法")
-        print(f"   ✅ 多轮交互的用户行为连续性")
-        print(f"   ✅ 真实社交媒体生态模拟")
-
     def _print_inter_round_summary(self, completed_round: int):
         """打印轮间摘要"""
         print(f"\n📈 第 {completed_round} 轮结束后状态:")
@@ -401,7 +400,7 @@ async def main():
     # 加载帖子数据
     posts = simulation.load_posts_from_csv(
         csv_path="Data/integrated_data/XMSU7D_integrated_articles.csv",
-        max_posts=15  # 加载15个帖子，支持多轮选择
+        max_posts=3  # 加载3个帖子，支持多轮选择
     )
 
     # 初始化模拟环境
@@ -409,7 +408,7 @@ async def main():
     users_count = user_manager.load_users_from_file("demo_users_enhanced.csv")
     simulation.initialize_simulation(
         posts=posts,
-        total_users=10,  # 10个用户
+        total_users=20,  # 20个用户
         user_manager=user_manager
     )
 
@@ -418,8 +417,8 @@ async def main():
         max_concurrent_requests=4,
         action_probability=0.7,
         comment_probability=0.5,
-        export_prompts=True
-
+        export_prompts=True,
+        prompt_export_dir=f"Output/prompt_exports/intel_multi_{simulation.batch_id}"
     )
 
     # 运行3轮模拟

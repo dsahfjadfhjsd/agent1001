@@ -42,61 +42,61 @@ class ContentDistributor:
 
         print(f"🎯 内容分发器初始化完成 - 批次: {batch_id}")
 
-    def initialize_batch(self, posts: List[Dict[str, Any]], users: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        初始化批次，为所有帖子生成post_id并创建初始分发计划
+    # def initialize_batch(self, posts: List[Dict[str, Any]], users: List[Dict[str, Any]]) -> Dict[str, Any]:
+    #     """
+    #     初始化批次，为所有帖子生成post_id并创建初始分发计划
 
-        Args:
-            posts: 帖子列表
-            users: 用户列表
+    #     Args:
+    #         posts: 帖子列表
+    #         users: 用户列表
 
-        Returns:
-            初始化后的分发计划
-        """
-        print(f"📋 初始化批次分发计划...")
+    #     Returns:
+    #         初始化后的分发计划
+    #     """
+    #     print(f"📋 初始化批次分发计划...")
 
-        # 为每个帖子生成post_id
-        for i, post in enumerate(posts):
-            if 'post_id' not in post:
-                # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                # post['post_id'] = f"post_{timestamp}_{i:03d}_{uuid.uuid4().hex[:6]}"
-                post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
+    #     # 为每个帖子生成post_id
+    #     for i, post in enumerate(posts):
+    #         if 'post_id' not in post:
+    #             # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #             # post['post_id'] = f"post_{timestamp}_{i:03d}_{uuid.uuid4().hex[:6]}"
+    #             post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
 
-        # 初始化分发计划
-        self.distribution_plan = {
-            'batch_id': self.batch_id,
-            'created_at': datetime.now().isoformat(),
-            'posts': {post['post_id']: {
-                'post_id': post['post_id'],
-                'content': post['content'],
-                'platform': post.get('platform', 'unknown'),
-                'title': post.get('title', ''),
-                'original_metrics': {
-                    'likes': post.get('original_likes', 0),
-                    'comments': post.get('original_comments', 0)
-                },
-                'simulation_metrics': {
-                    'total_interactions': 0,
-                    'total_likes': 0,
-                    'total_comments': 0,
-                    'unique_users': 0,
-                    'heat_score': 0.0
-                },
-                'round_history': []
-            } for post in posts},
-            'users': {user['user_id']: {
-                'user_id': user['user_id'],
-                'profile': user,
-                'interaction_history': [],
-                'activity_score': 0.0,
-                'last_active_round': 0
-            } for user in users},
-            'rounds': []
-        }
+    #     # 初始化分发计划
+    #     self.distribution_plan = {
+    #         'batch_id': self.batch_id,
+    #         'created_at': datetime.now().isoformat(),
+    #         'posts': {post['post_id']: {
+    #             'post_id': post['post_id'],
+    #             'content': post['content'],
+    #             'platform': post.get('platform', 'unknown'),
+    #             'title': post.get('title', ''),
+    #             'original_metrics': {
+    #                 'likes': post.get('original_likes', 0),
+    #                 'comments': post.get('original_comments', 0)
+    #             },
+    #             'simulation_metrics': {
+    #                 'total_interactions': 0,
+    #                 'total_likes': 0,
+    #                 'total_comments': 0,
+    #                 'unique_users': 0,
+    #                 'heat_score': 0.0
+    #             },
+    #             'round_history': []
+    #         } for post in posts},
+    #         'users': {user['user_id']: {
+    #             'user_id': user['user_id'],
+    #             'profile': user,
+    #             'interaction_history': [],
+    #             'activity_score': 0.0,
+    #             'last_active_round': 0
+    #         } for user in users},
+    #         'rounds': []
+    #     }
 
-        self._save_plan()
-        print(f"✅ 批次初始化完成 - {len(posts)} 个帖子，{len(users)} 个用户")
-        return self.distribution_plan
+    #     self._save_plan()
+    #     print(f"✅ 批次初始化完成 - {len(posts)} 个帖子，{len(users)} 个用户")
+    #     return self.distribution_plan
 
     def generate_round_distribution(self, round_number: int,
                                     posts_per_round: int = 5,
@@ -384,42 +384,3 @@ class ContentDistributor:
                         if user_id in self.distribution_plan['users']:
                             self.distribution_plan['users'][user_id]['last_active_round'] = round_number
                             self.distribution_plan['users'][user_id]['activity_score'] += 1.0
-
-
-if __name__ == "__main__":
-    # 测试代码
-    distributor = ContentDistributor("test_batch_001")
-
-    # 模拟帖子和用户数据
-    test_posts = [
-        {'content': f'测试帖子 {i}', 'platform': 'test'}
-        for i in range(10)
-    ]
-    test_users = [
-        {'user_id': f'user_{i:03d}'}
-        for i in range(50)
-    ]
-
-    # 初始化
-    distributor.initialize_batch(test_posts, test_users)
-
-    # 生成第一轮分发
-    round1 = distributor.generate_round_distribution(1, posts_per_round=3, users_per_post=5)
-    print("第一轮分发:", round1)
-
-    # 模拟第一轮结果并更新
-    mock_results = {
-        'posts': [
-            {'post_id': pid, 'actions_count': random.randint(5, 20), 'users_count': 5}
-            for pid in round1['posts'].keys()
-        ]
-    }
-    distributor.update_round_results(1, mock_results)
-
-    # 生成第二轮分发
-    round2 = distributor.generate_round_distribution(2, posts_per_round=4, users_per_post=6)
-    print("第二轮分发:", round2)
-
-    # 获取摘要
-    summary = distributor.get_distribution_summary()
-    print("分发摘要:", summary)

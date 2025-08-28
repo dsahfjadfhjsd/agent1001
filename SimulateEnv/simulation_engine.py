@@ -77,7 +77,7 @@ class SimulationEngine:
 
     def create_session(self, post_content: str, post_id: str = None, batch_id: str = None) -> str:
         """
-        创建新的模拟会话（基于post_id）
+        创建新的模拟会话（基于post_id），如果会话已存在则加载历史数据
 
         Args:
             post_content: 初始帖子内容
@@ -98,18 +98,47 @@ class SimulationEngine:
         if self.memory_manager is None or previous_batch_id != batch_id:
             self.memory_manager = UserMemoryManager(self.base_memory_dir, batch_id)
 
-        # 创建环境
-        self.current_environment = InteractionEnvironment(post_content, post_id=post_id)
-        self.current_session_id = post_id  # 使用post_id作为session_id
+        # 尝试加载已存在的会话
+        existing_env = self.storage.load_environment(post_id)
+        if existing_env:
+            print(f"🔄 加载已存在的会话: {post_id}")
+            print(f"   已有轮次: {existing_env.current_round}")
+            print(f"   已有行为数: {len(existing_env.actions)}")
 
-        # 初始化保存时间戳
-        self.storage._session_created_at = datetime.now().isoformat()
+            # 使用加载的环境
+            self.current_environment = existing_env
+            self.current_session_id = post_id
 
-        # 保存初始状态（使用post_id作为目录名）
-        self.storage.save_incremental_data(self.current_environment, post_id, batch_id)
+            # 显示当前环境状态
+            current_actions = existing_env.actions
+            if current_actions:
+                print(f"   历史交互概况:")
+                action_stats = {}
+                for action in current_actions:
+                    action_type = action.action_type.value
+                    action_stats[action_type] = action_stats.get(action_type, 0) + 1
+                print(f"     行为统计: {action_stats}")
 
-        print(f"创建新会话: {post_id}")
-        print(f"初始帖子: {post_content}")
+                # 显示最近几条评论作为示例
+                # recent_comments = [a for a in current_actions[-3:] if a.action_type.value == 'comment_post' and a.content]
+                # if recent_comments:
+                #     print(f"     最近评论:")
+                #     for comment in recent_comments:
+                #         preview = comment.content[:40] + "..." if len(comment.content) > 40 else comment.content
+                #         print(f"       - {comment.user_id}: {preview}")
+        else:
+            print(f"创建新会话: {post_id}")
+            print(f"初始帖子: {post_content}")
+
+            # 创建新环境
+            self.current_environment = InteractionEnvironment(post_content, post_id=post_id)
+            self.current_session_id = post_id  # 使用post_id作为session_id
+
+            # 初始化保存时间戳
+            self.storage._session_created_at = datetime.now().isoformat()
+
+            # 保存初始状态（使用post_id作为目录名）
+            self.storage.save_incremental_data(self.current_environment, post_id, batch_id)
 
         return post_id
 
@@ -155,7 +184,6 @@ class SimulationEngine:
         self.current_environment.start_new_round()
         round_number = self.current_environment.current_round
 
-        print(f"\n=== 开始第 {round_number} 轮模拟（增强模式） ===")
         print(f"参与用户数: {len(user_profiles)}")
         print(f"📊 模拟进度：正在初始化用户记忆...")
 
