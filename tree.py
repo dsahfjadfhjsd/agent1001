@@ -38,7 +38,7 @@ class DirectoryTreeGenerator:
                 return True
             if pattern.startswith('.') and name.startswith(pattern):
                 return True
-        return False
+        return False # 默认不忽略
 
     def generate_tree(self, root_path: str, current_depth: int = 0, prefix: str = "") -> str:
         """
