@@ -490,10 +490,11 @@ class UserBehaviorSimulator:
 
         # 添加历史记忆
         if user_memory:
+            user_memory = user_memory[-5:]  # 最多只保留最近5次交互
             prompt += f"\n用户历史记忆（最近{len(user_memory)}次交互）：\n"
             for i, memory in enumerate(user_memory, 1):
-                prompt += f"{i}. 轮次{memory.get('round_number', '?')}：{memory.get('thinking_process', '无记录')[:50]}...\n"
-                prompt += f"   行为：{memory.get('action_taken', '无')} | 立场变化：{memory.get('stance_before', 0):.1f}→{memory.get('stance_after', 0):.1f}\n"
+                prompt += f"{i}. 轮次{memory.get('round_number', '?')}：{memory.get('thinking_process', '无记录')[:60]}...\n"
+                prompt += f"   行为：{memory.get('action_taken', '无')} | 立场变化：{memory.get('stance_before', 0):.1f}→{memory.get('stance_after', 0):.1f} | 情感变化：{memory.get('sentiment_before', 0):.1f}→{memory.get('sentiment_after', 0):.1f}\n"
 
         prompt += f"""
 
