@@ -1,0 +1,17 @@
+# folder
+Data/
+__pycache__/
+.venv/
+output*/
+Output/
+Test/
+UserAgent/generated_users/
+Config/
+UserAgent/user_memories/
+
+# file
+.env
+README.md
+*.md
+test*.py
+user_behavior_prompt.txt

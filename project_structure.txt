@@ -1,0 +1,64 @@
+项目结构
+==========
+agent1001/
+├── Config/
+│   ├── .env
+│   └── user_profiles.json
+├── Data/
+│   ├── integrated_data/
+│   │   ├── integrated_data_data_report.json
+│   │   ├── XMSU7D_data_report.json
+│   │   ├── XMSU7D_integrated_articles.csv
+│   │   └── XMSU7D_integrated_comments.csv
+│   ├── visualizations/
+│   └── XMSU7D/
+│       ├── douyin/
+│       ├── weibo/
+│       ├── weixin/
+│       ├── xhs/
+│       └── zhihu/
+├── DataProcess/
+│   ├── __init__.py
+│   ├── data_sorter.py
+│   ├── organize_data.py
+│   └── paint.py
+├── DisAgent/
+│   ├── __init__.py
+│   └── content_distributor.py
+├── Output/
+│   ├── exports/
+│   └── prompt_exports/
+├── SimulateEnv/
+│   ├── __init__.py
+│   ├── data_storage.py
+│   ├── interaction_core.py
+│   ├── simulation_engine.py
+│   └── user_behavior_simulator.py
+├── Test/
+├── UserAgent/
+│   ├── generated_users/
+│   │   ├── batch_advanced_multipost_20250827_104507.csv
+│   │   ├── demo_multi_post.csv
+│   │   ├── demo_session_reuse.csv
+│   │   ├── demo_users_enhanced.csv
+│   │   ├── intelligent_sim_intelligent_sim_20250827_164224.csv
+│   │   ├── intelligent_sim_intelligent_sim_20250827_164621.csv
+│   │   ├── quick_demo_20250827_105944_users.csv
+│   │   └── users_20250826_150950.csv
+│   ├── user_memories/
+│   │   ├── intelligent_sim_20250828_154529/
+│   │   ├── intelligent_sim_20250828_155624/
+│   │   ├── intelligent_sim_20250828_160217/
+│   │   ├── intelligent_sim_20250828_160355/
+│   │   └── multipost_20250826_150950/
+│   ├── __init__.py
+│   ├── user_memory_manager.py
+│   ├── user_profile_generator.py
+│   └── user_profile_manager.py
+├── .python-version
+├── demo_enhanced.py
+├── demo_intelligent_multiround.py
+├── demo_simple_multipost.py
+├── project_structure.txt
+├── pyproject.toml
+└── tree.py
