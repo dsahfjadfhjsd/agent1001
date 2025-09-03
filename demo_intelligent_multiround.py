@@ -183,7 +183,7 @@ class IntelligentMultiRoundSimulation:
                 # 获取帖子内容
                 post_data = self.distributor.distribution_plan['posts'][post_id]
                 post_content = post_data['content']
-                print(f"   内容预览: {post_content[:80]}...")
+                # print(f"   内容预览: {post_content[:80]}...")
 
                 # 获取分配的用户
                 assigned_user_ids = post_dist['assigned_users']

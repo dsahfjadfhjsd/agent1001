@@ -183,20 +183,4 @@ if __name__ == "__main__":
     # 创建管理器
     manager = UserProfileManager()
 
-    # 生成用户
-    filepath = manager.generate_users(10, "test_users.csv")
-    print(f"生成了 10 个用户，保存到: {filepath}")
-
-    # 生成统计报告
-    print("\n" + manager.generate_report())
-
-    # 删除一个用户
-    users = manager.get_all_users()
-    if users:
-        first_user_id = users[0]['user_id']
-        success = manager.delete_user(first_user_id)
-        print(f"\n删除用户 {first_user_id}: {'成功' if success else '失败'}")
-        print(f"剩余用户数: {len(manager.get_all_users())}")
-
-    # 列出文件
-    print(f"\n已保存的文件: {manager.list_saved_files()}")
+    manager.generate_users(10000, "demo_users_0903.csv")

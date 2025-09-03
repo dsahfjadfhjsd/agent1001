@@ -211,8 +211,8 @@ class DataStorage:
         # 保存环境状态（覆盖保存）
         self.save_environment_state(env, post_id, session_dir)
 
-        # 增量保存用户行为（追加模式）
-        self._save_user_actions_incremental(env.actions, session_dir)
+        # 增量保存用户行为（只保存新增的）
+        self._save_user_actions_incremental(env, session_dir)
 
         # 保存/更新环境基本信息
         env_info = {
@@ -237,19 +237,26 @@ class DataStorage:
 
         return str(session_dir)
 
-    def _save_user_actions_incremental(self, actions: List[UserAction], session_dir: Path):
+    def _save_user_actions_incremental(self, env: 'InteractionEnvironment', session_dir: Path):
         """
-        增量保存用户行为数据
+        增量保存用户行为数据（只保存新增的行为）
 
         Args:
-            actions: 用户行为列表
+            env: 交互环境实例
             session_dir: 会话目录
         """
-        if not actions:
+        # 获取已保存的actions数量
+        if not hasattr(env, '_saved_actions_count'):
+            env._saved_actions_count = 0
+
+        # 计算新增的actions
+        new_actions = env.actions[env._saved_actions_count:]
+
+        if not new_actions:
             return
 
         actions_data = []
-        for action in actions:
+        for action in new_actions:
             action_data = {
                 'user_id': action.user_id,
                 'action_type': action.action_type.value,
@@ -273,10 +280,15 @@ class DataStorage:
             actions_data.append(action_data)
 
         actions_path = session_dir / "all_actions.csv"
-        # 追加保存，保持所有轮次的行为记录
+        # 追加保存新增的行为记录
         self._save_to_csv(actions_path, actions_data, mode='a')
 
-    def load_environment(self, post_id: str) -> Optional[InteractionEnvironment]:
+        # 更新已保存的actions数量
+        env._saved_actions_count = len(env.actions)
+
+        print(f"📝 增量保存 {len(new_actions)} 个新行为到 {actions_path}")
+
+    def load_environment(self, post_id: str) -> Optional['InteractionEnvironment']:
         """
         从文件加载环境数据
 
@@ -325,11 +337,72 @@ class DataStorage:
                     target_id=row['target_id'],
                     content=row['content'] if row['content'] else None,
                     created_at=datetime.fromisoformat(row['created_at']),
-                    round_number=row['round_number']
+                    round_number=row['round_number'],
+                    comment_id=row.get('comment_id', None) if 'comment_id' in row and pd.notna(row.get('comment_id')) else None
                 )
-                env.add_action(action)
+                # 直接重建评论和行为，而不是重新执行
+                self._rebuild_action(env, action)
+
+        # 设置已保存的actions数量，避免重复保存
+        env._saved_actions_count = len(env.actions)
 
         return env
+
+    def _rebuild_action(self, env: 'InteractionEnvironment', action: 'UserAction') -> bool:
+        """
+        重建历史行为，而不是重新执行
+
+        Args:
+            env: 交互环境
+            action: 用户行为
+
+        Returns:
+            是否重建成功
+        """
+        try:
+            # 对于评论类型的行为，需要重建评论对象
+            if action.action_type == ActionType.COMMENT_POST and action.comment_id:
+                from .interaction_core import Comment
+                comment = Comment(
+                    comment_id=action.comment_id,
+                    post_id=action.target_id,
+                    content=action.content,
+                    author_id=action.user_id
+                )
+                env.comments[action.comment_id] = comment
+
+            elif action.action_type == ActionType.COMMENT_COMMENT and action.comment_id:
+                from .interaction_core import Comment
+                comment = Comment(
+                    comment_id=action.comment_id,
+                    post_id=env.post.post_id,  # 从环境获取post_id
+                    content=action.content,
+                    author_id=action.user_id,
+                    parent_comment_id=action.target_id
+                )
+                env.comments[action.comment_id] = comment
+
+            # 对于点赞类型的行为，需要更新对应对象的点赞数
+            elif action.action_type == ActionType.LIKE_POST:
+                if action.user_id not in env.post.like_users:
+                    env.post.like_users.append(action.user_id)
+                    env.post.likes += 1
+
+            elif action.action_type == ActionType.LIKE_COMMENT and action.target_id in env.comments:
+                comment = env.comments[action.target_id]
+                if action.user_id not in comment.like_users:
+                    comment.like_users.append(action.user_id)
+                    comment.likes += 1
+
+            # 记录行为到环境
+            env.actions.append(action)
+            env.user_action_count[action.user_id] = env.user_action_count.get(action.user_id, 0) + 1
+
+            return True
+
+        except Exception as e:
+            print(f"重建行为失败: {e}")
+            return False
 
     def load_user_actions(self, post_id: str, user_id: str = None) -> List[Dict[str, Any]]:
         """

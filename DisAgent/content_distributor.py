@@ -340,8 +340,8 @@ class ContentDistributor:
             inactive_users = [uid for uid, udata in self.distribution_plan['users'].items()
                               if udata['last_active_round'] < round_number - 1]
 
-            # 70%活跃用户，30%非活跃用户
-            active_count = min(int(count * 0.7), len(active_users))
+            # 30%活跃用户，70%非活跃用户
+            active_count = min(int(count * 0.3), len(active_users))
             inactive_count = count - active_count
 
             selected = []

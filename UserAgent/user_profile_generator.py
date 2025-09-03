@@ -287,14 +287,6 @@ if __name__ == "__main__":
     # 创建生成器
     generator = UserProfileGenerator()
 
-    # 生成单个用户
-    print("=== 生成单个用户画像 ===")
-    user = generator.generate_user_profile()
-    print(f"用户ID: {user['user_id']}")
-    for key, value in user.items():
-        if key != 'user_id':
-            print(f"{key}: {value}")
-
     print("\n=== 生成多个用户画像 ===")
     # 生成多个用户
     users = generator.generate_multiple_users(5)
