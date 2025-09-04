@@ -298,7 +298,34 @@ class ContentDistributor:
         return random.sample(all_post_ids, min(count, len(all_post_ids)))
 
     def _select_subsequent_round_posts(self, round_number: int, count: int, hot_ratio: float) -> List[str]:
-        """选择后续轮次帖子（结合热门度和随机）"""
+        """选择后续轮次帖子（结合热门度和随机，增加随机性避免固化）"""
+
+        # 随机策略选择概率
+        # 30% 概率：完全随机选择（避免热门帖子固化）
+        # 60% 概率：热门帖子 + 随机帖子混合
+        # 10% 概率：大部分热门帖子 + 少量随机帖子
+
+        strategy_choice = random.random()
+
+        if strategy_choice < 0.3:
+            # 策略1：完全随机选择
+            print(f"   📦 策略：完全随机选择")
+            all_post_ids = list(self.distribution_plan['posts'].keys())
+            return random.sample(all_post_ids, min(count, len(all_post_ids)))
+
+        elif strategy_choice < 0.9:
+            # 策略2：热门帖子 + 随机帖子混合（使用原始hot_ratio）
+            print(f"   📦 策略：热门+随机混合 (热门比例: {hot_ratio:.1f})")
+            return self._select_mixed_posts(count, hot_ratio)
+
+        else:
+            # 策略3：大部分热门帖子 + 少量随机帖子
+            enhanced_hot_ratio = min(0.8, hot_ratio + 0.3)  # 提高热门比例到最高80%
+            print(f"   📦 策略：偏向热门选择 (热门比例: {enhanced_hot_ratio:.1f})")
+            return self._select_mixed_posts(count, enhanced_hot_ratio)
+
+    def _select_mixed_posts(self, count: int, hot_ratio: float) -> List[str]:
+        """选择混合帖子（热门+随机）"""
         # 计算热门帖子和随机帖子的数量
         hot_count = int(count * hot_ratio)
         random_count = count - hot_count
@@ -308,19 +335,33 @@ class ContentDistributor:
         # 选择热门帖子
         if hot_count > 0:
             hot_posts = self.get_hot_posts(hot_count * 2)  # 获取更多候选
-            hot_post_ids = [p['post_id'] for p in hot_posts[:hot_count]]
-            selected_posts.extend(hot_post_ids)
+            if hot_posts:
+                # 从热门帖子中再加一点随机性，不总是选择最热门的
+                available_hot = [p['post_id'] for p in hot_posts]
+                selected_hot = random.sample(available_hot, min(hot_count, len(available_hot)))
+                selected_posts.extend(selected_hot)
+                print(f"     🔥 选中 {len(selected_hot)} 个热门帖子")
 
         # 选择随机帖子（优先选择未使用的）
         if random_count > 0:
             unused_posts = self.get_unused_posts()
-            if len(unused_posts) >= random_count:
+
+            # 70%概率优先选择未使用的帖子，30%概率从所有帖子中选择
+            prefer_unused = random.random() < 0.7
+
+            if prefer_unused and len(unused_posts) >= random_count:
                 random_posts = random.sample(unused_posts, random_count)
+                print(f"     🎲 选中 {len(random_posts)} 个新帖子")
             else:
-                # 如果未使用的帖子不够，从所有帖子中随机选择
+                # 从所有帖子中随机选择（排除已选中的）
                 all_posts = list(self.distribution_plan['posts'].keys())
                 available_posts = [p for p in all_posts if p not in selected_posts]
-                random_posts = random.sample(available_posts, min(random_count, len(available_posts)))
+                if available_posts:
+                    actual_random_count = min(random_count, len(available_posts))
+                    random_posts = random.sample(available_posts, actual_random_count)
+                    print(f"     🎲 选中 {len(random_posts)} 个随机帖子")
+                else:
+                    random_posts = []
 
             selected_posts.extend(random_posts)
 
@@ -340,8 +381,8 @@ class ContentDistributor:
             inactive_users = [uid for uid, udata in self.distribution_plan['users'].items()
                               if udata['last_active_round'] < round_number - 1]
 
-            # 30%活跃用户，70%非活跃用户
-            active_count = min(int(count * 0.3), len(active_users))
+            # 20%活跃用户，80%非活跃用户
+            active_count = min(int(count * 0.2), len(active_users))
             inactive_count = count - active_count
 
             selected = []

@@ -183,4 +183,4 @@ if __name__ == "__main__":
     # 创建管理器
     manager = UserProfileManager()
 
-    manager.generate_users(10000, "demo_users_0903.csv")
+    manager.generate_users(10000, "demo_users_0904.csv")

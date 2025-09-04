@@ -143,6 +143,7 @@ class TimeSeriesSimulation:
 
     async def run_time_series_simulation(self,
                                          csv_path: str,
+                                         user_path: str,
                                          start_date: str = "2025-03-31 24:00",
                                          sample_ratio: float = 0.4,
                                          max_time_steps: int = 10,
@@ -154,7 +155,8 @@ class TimeSeriesSimulation:
         运行时间序列模拟
 
         Args:
-            csv_path: 数据文件路径
+            csv_path: 帖子数据文件路径
+            user_path: 用户数据文件路径
             start_date: 开始时间
             sample_ratio: 采样比例
             max_time_steps: 最大时间步数
@@ -178,7 +180,7 @@ class TimeSeriesSimulation:
         user_manager = UserProfileManager()
         try:
             # 尝试加载已有用户文件
-            users_count = user_manager.load_users_from_file("demo_users_enhanced.csv")
+            users_count = user_manager.load_users_from_file(user_path)
             print(f"📋 加载已有用户: {users_count} 个")
         except:
             # 如果没有已有用户文件，则生成新用户
@@ -493,7 +495,6 @@ class TimeSeriesSimulation:
                 'start_time': self.start_time.isoformat(),
                 'time_step_hours': self.time_step_hours,
                 'stance_history': self.stance_history,
-                'round_active_users': self.round_active_users
             }, f, indent=2, ensure_ascii=False, default=str)
 
         print(f"📁 结果已保存到: {results_file}")
@@ -509,6 +510,9 @@ class TimeSeriesSimulation:
         sim_stance = [item['sim_stance'] for item in self.stance_history]
         sim_sentiment = [item['sim_sentiment'] for item in self.stance_history]
         interaction_counts = [item['interaction_count'] for item in self.stance_history]
+
+        # 保存绘图数据点到CSV文件
+        self._save_plot_data(times, sim_stance, sim_sentiment, interaction_counts)
 
         # 创建图表
         fig, axes = plt.subplots(2, 2, figsize=(15, 10))
@@ -575,6 +579,63 @@ class TimeSeriesSimulation:
 
         # 打印统计信息
         self._print_user_statistics()
+
+    def _save_plot_data(self, times: List[datetime], sim_stance: List[float],
+                        sim_sentiment: List[float], interaction_counts: List[int]):
+        """
+        保存绘图数据点到CSV文件
+
+        Args:
+            times: 时间点列表
+            sim_stance: 立场数值列表
+            sim_sentiment: 情感数值列表
+            interaction_counts: 参与用户数列表
+        """
+        results_dir = Path(f"Output/timeseries/{self.batch_id}")
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # 创建包含所有绘图数据的DataFrame
+        plot_data = []
+        for i, time_point in enumerate(times):
+            plot_data.append({
+                'time_step': i + 1,
+                'datetime': time_point.strftime('%Y-%m-%d %H:%M:%S'),
+                'user_stance': sim_stance[i],
+                'user_sentiment': sim_sentiment[i],
+                'participant_count': interaction_counts[i],
+                'batch_id': self.batch_id
+            })
+
+        # 保存为CSV
+        plot_data_file = results_dir / "plot_data_points.csv"
+        df = pd.DataFrame(plot_data)
+        df.to_csv(plot_data_file, index=False, encoding='utf-8-sig')
+
+        print(f"📈 绘图数据点已保存到: {plot_data_file}")
+
+        # 保存为JSON格式（更详细的数据）
+        detailed_data = {
+            'batch_id': self.batch_id,
+            'time_step_hours': self.time_step_hours,
+            'total_time_steps': len(times),
+            'data_points': plot_data,
+            'summary': {
+                'stance_avg': float(np.mean(sim_stance)) if sim_stance else 0.0,
+                'stance_min': float(min(sim_stance)) if sim_stance else 0.0,
+                'stance_max': float(max(sim_stance)) if sim_stance else 0.0,
+                'sentiment_avg': float(np.mean(sim_sentiment)) if sim_sentiment else 0.0,
+                'sentiment_min': float(min(sim_sentiment)) if sim_sentiment else 0.0,
+                'sentiment_max': float(max(sim_sentiment)) if sim_sentiment else 0.0,
+                'participant_avg': float(np.mean(interaction_counts)) if interaction_counts else 0.0,
+                'participant_total': sum(interaction_counts)
+            }
+        }
+
+        plot_data_json = results_dir / "plot_data_points.json"
+        with open(plot_data_json, 'w', encoding='utf-8') as f:
+            json.dump(detailed_data, f, indent=2, ensure_ascii=False)
+
+        print(f"📊 详细绘图数据已保存到: {plot_data_json}")
 
     def _print_user_statistics(self):
         """打印用户统计信息"""
@@ -646,8 +707,9 @@ async def main():
     # 运行时间序列模拟
     results = await ts_sim.run_time_series_simulation(
         csv_path="Data/integrated_data/XMSU7D_integrated_articles.csv",
+        user_path="demo_users_0904.csv",  # 使用已有用户文件
         start_date="2025-03-31 18:00",  # 从2025年3月31日18:00开始
-        sample_ratio=0.7,               # 采样比例
+        sample_ratio=0.8,               # 采样比例
         max_time_steps=77,               # 运行77个时间步
         time_step_hours=6,              # 每6小时一步
         posts_per_round=5,              # 每轮5个帖子
