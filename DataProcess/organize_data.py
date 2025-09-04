@@ -12,6 +12,7 @@ import json
 from typing import List, Dict, Optional
 import logging
 from datetime import datetime
+import hashlib
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,21 +32,24 @@ class DataOrganizer:
         self.data_root_path = Path(data_root_path)
         self.platforms = ['douyin', 'weibo', 'weixin', 'xhs', 'zhihu']
 
+        # 用于存储article_id到post_id的映射
+        self.article_id_mapping = {}
+
         # 定义需要保留的重要字段
         self.article_fields = [
-            'article_id', 'content', 'created_time', 'created_date', 'like_count',
+            'post_id', 'content', 'created_time', 'created_date', 'like_count',
             'comment_count', 'share_count', 'uid', 'username',
             'location', 'stance', 'sentiment', 'intent',
             'stance_content', 'sentiment_content', 'intent_content',
-            'video_urls', 'img_urls', 'platform'
+            'video_urls', 'img_urls', 'platform', 'original_article_id'
         ]
 
         self.comment_fields = [
-            'comment_id', 'content', 'article_id', 'created_time', 'created_date',
+            'comment_id', 'content', 'post_id', 'created_time', 'created_date',
             'like_count', 'parent_comment_id', 'reply_comment',
             'location', 'stance', 'sentiment', 'intent',
             'stance_content', 'sentiment_content', 'intent_content',
-            'video_urls', 'img_urls', 'platform'
+            'video_urls', 'img_urls', 'platform', 'original_article_id'
         ]
 
     def find_data_folders(self) -> List[Path]:
@@ -55,6 +59,22 @@ class DataOrganizer:
             if item.is_dir():
                 data_folders.append(item)
         return data_folders
+
+    def generate_post_id(self, platform: str, article_id: str) -> str:
+        """生成统一的post_id格式"""
+        try:
+            # 使用平台和原始ID生成6位哈希
+            combined = f"{platform}_{article_id}"
+            hash_object = hashlib.md5(combined.encode())
+            hex_dig = hash_object.hexdigest()
+            # 取前6位作为post_id
+            post_id = f"post_{hex_dig[:6]}"
+            return post_id
+        except Exception as e:
+            logger.warning(f"生成post_id失败: {e}")
+            # 备用方案：使用平台前缀 + 哈希
+            backup_hash = str(hash(combined))[-6:]
+            return f"post_{backup_hash}"
 
     def safe_get_field(self, row: pd.Series, field: str, default='') -> str:
         """安全获取字段值"""
@@ -124,10 +144,19 @@ class DataOrganizer:
         processed_data = []
 
         for _, row in df.iterrows():
+            original_article_id = self.safe_get_field(row, 'article_id')
             created_time = self.safe_get_field(row, 'created_time')
+
+            # 生成统一的post_id
+            post_id = self.generate_post_id(platform, original_article_id)
+
+            # 存储映射关系
+            self.article_id_mapping[original_article_id] = post_id
+
             article_data = {
                 'platform': platform,
-                'article_id': self.safe_get_field(row, 'article_id'),
+                'post_id': post_id,
+                'original_article_id': original_article_id,
                 'content': self.safe_get_field(row, 'content'),
                 'created_time': created_time,
                 'created_date': self.convert_timestamp_to_date(created_time),
@@ -173,12 +202,22 @@ class DataOrganizer:
         processed_data = []
 
         for _, row in df.iterrows():
+            original_article_id = self.safe_get_field(row, 'article_id')
             created_time = self.safe_get_field(row, 'created_time')
+
+            # 查找对应的post_id，如果没有找到则生成一个
+            post_id = self.article_id_mapping.get(original_article_id)
+            if not post_id:
+                post_id = self.generate_post_id(platform, original_article_id)
+                self.article_id_mapping[original_article_id] = post_id
+                logger.warning(f"评论引用了未处理的文章ID: {original_article_id}, 生成post_id: {post_id}")
+
             comment_data = {
                 'platform': platform,
                 'comment_id': self.safe_get_field(row, 'comment_id'),
                 'content': self.safe_get_field(row, 'content'),
-                'article_id': self.safe_get_field(row, 'article_id'),
+                'post_id': post_id,
+                'original_article_id': original_article_id,
                 'created_time': created_time,
                 'created_date': self.convert_timestamp_to_date(created_time),
                 'like_count': self.safe_get_field(row, 'like_count', '0'),
@@ -216,6 +255,8 @@ class DataOrganizer:
 
         logger.info(f"开始处理文件夹: {folder_path}")
 
+        # 第一步：先处理所有平台的文章数据，建立完整的ID映射
+        logger.info("第一步：处理所有平台的文章数据")
         for platform in self.platforms:
             platform_path = folder_path / platform
 
@@ -233,6 +274,14 @@ class DataOrganizer:
                     logger.info(f"成功处理 {platform} 的 {len(processed_articles)} 条文章数据")
                 except Exception as e:
                     logger.error(f"处理 {platform} 文章数据时出错: {e}")
+
+        # 第二步：处理所有平台的评论数据，使用已建立的ID映射
+        logger.info("第二步：处理所有平台的评论数据")
+        for platform in self.platforms:
+            platform_path = folder_path / platform
+
+            if not platform_path.exists():
+                continue
 
             # 处理评论数据
             comment_file = platform_path / f"{platform}_comments.csv"
@@ -306,8 +355,20 @@ class DataOrganizer:
             logger.info(f"评论数据统计: 共 {len(comments_df)} 条，来自 {comments_df['platform'].nunique()} 个平台")
             # logger.info(f"评论数据已按时间排序（最新在前）")
 
+        # 保存ID映射关系
+        self.save_id_mapping(output_folder, folder_name)
+
         # 生成数据统计报告
         self.generate_data_report(articles_df, comments_df, output_folder, folder_name)
+
+    def save_id_mapping(self, output_folder: Path, folder_name: str):
+        """保存article_id到post_id的映射关系"""
+        if self.article_id_mapping:
+            mapping_file = output_folder / f"{folder_name}_id_mapping.json"
+            with open(mapping_file, 'w', encoding='utf-8') as f:
+                json.dump(self.article_id_mapping, f, ensure_ascii=False, indent=2)
+            logger.info(f"ID映射关系已保存到: {mapping_file}")
+            logger.info(f"映射关系统计: 共 {len(self.article_id_mapping)} 条映射")
 
     def generate_data_report(self, articles_df: pd.DataFrame, comments_df: pd.DataFrame,
                              output_folder: Path, folder_name: str):
@@ -316,6 +377,11 @@ class DataOrganizer:
             "数据整合报告": {
                 "处理时间": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "数据源": folder_name,
+                "ID转换": {
+                    "转换说明": "原始article_id已转换为统一的post_id格式",
+                    "映射数量": len(self.article_id_mapping),
+                    "示例映射": dict(list(self.article_id_mapping.items())[:5]) if self.article_id_mapping else {}
+                },
                 "文章数据": {
                     "总数": len(articles_df) if not articles_df.empty else 0,
                     "平台分布": articles_df['platform'].value_counts().to_dict() if not articles_df.empty else {},
@@ -352,6 +418,9 @@ class DataOrganizer:
             logger.info(f"\n{'='*50}")
             logger.info(f"开始处理数据文件夹: {folder.name}")
 
+            # 重置ID映射（每个文件夹独立）
+            self.article_id_mapping = {}
+
             # 整合该文件夹的数据
             articles_df, comments_df = self.integrate_platform_data(folder)
 
@@ -359,6 +428,7 @@ class DataOrganizer:
             self.save_integrated_data(articles_df, comments_df, output_path, folder.name)
 
             logger.info(f"完成文件夹 {folder.name} 的数据整合")
+            logger.info(f"生成了 {len(self.article_id_mapping)} 个post_id映射")
 
         logger.info(f"\n{'='*50}")
         logger.info("所有数据整合完成！")

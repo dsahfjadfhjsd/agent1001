@@ -373,7 +373,9 @@ class UserBehaviorSimulator:
 - comment_comment: 回复评论，target_id使用要回复的评论ID，需要提供action_content
 - no_action: 不采取任何行动
 
-特别提醒：当存在评论时，请优先考虑comment_comment（回复评论）或like_comment（点赞评论），这能促进用户间的互动交流。
+特别提醒：
+即使你不打算采取行动，也请输出no_action，以及你的思考过程等，保持格式完整。
+当存在评论时，可以考虑comment_comment（回复评论）或like_comment（点赞评论），这能促进用户间的互动交流。
 
 请严格按照JSON格式回复，包含：
 - thinking_process: 详细的思考过程（100字以内）
