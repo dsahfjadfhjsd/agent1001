@@ -46,8 +46,10 @@ class SimulationConfig:
     max_concurrent_requests: int = 5
     request_timeout: int = 60
     model_name: str = "qwen-max"
+    # 暂时未使用
     max_tokens: int = 500
     temperature: float = 0.7
+    # 备用方案参数
     action_probability: float = 0.7  # 用户采取行动的概率
     comment_probability: float = 0.3  # 在决定行动时选择评论而非点赞的概率
     # 新增：Prompt导出配置

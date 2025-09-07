@@ -699,6 +699,7 @@ async def main():
 
     config = SimulationConfig(
         max_concurrent_requests=10,
+        model_name="qwen3-max-preview",
         action_probability=0.7,
         comment_probability=0.5,
         export_prompts=False
@@ -707,7 +708,7 @@ async def main():
     # 运行时间序列模拟
     results = await ts_sim.run_time_series_simulation(
         csv_path="Data/integrated_data/XMSU7D_integrated_articles.csv",
-        user_path="demo_users_0904.csv",  # 使用已有用户文件
+        user_path="demo_users_0907_2.csv",  # 使用已有用户文件
         start_date="2025-03-31 18:00",  # 从2025年3月31日18:00开始
         sample_ratio=0.8,               # 采样比例
         max_time_steps=77,               # 运行77个时间步

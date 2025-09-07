@@ -356,6 +356,201 @@ class Analyzer:
         print(f"  最支持时间: {max_stance_hour} (值: {max_stance_val:.3f})")
         print(f"  最批判时间: {min_stance_hour} (值: {min_stance_val:.3f})")
 
+    def load_simulation_data(self, simulation_file_path):
+        """加载时间序列模拟数据"""
+        print("📊 正在加载模拟数据...")
+
+        try:
+            sim_df = pd.read_csv(simulation_file_path, encoding='utf-8-sig')
+            sim_df['datetime'] = pd.to_datetime(sim_df['datetime'])
+            print(f"✅ 加载模拟数据: {len(sim_df)} 个时间点")
+
+            # 显示模拟数据的时间范围
+            print(f"📅 模拟数据时间范围: {sim_df['datetime'].min()} 至 {sim_df['datetime'].max()}")
+
+            return sim_df
+        except Exception as e:
+            print(f"❌ 加载模拟数据失败: {e}")
+            return None
+
+    def plot_comparison_analysis(self, simulation_file_path, photo_name="comparison_analysis.png"):
+        """绘制真实数据与模拟数据的立场/情感对比分析 - 模仿原图风格"""
+        print("🎨 绘制真实数据与模拟数据对比图...")
+
+        # 加载模拟数据
+        sim_data = self.load_simulation_data(simulation_file_path)
+        if sim_data is None:
+            return None
+
+        # 获取真实数据的小时级聚合
+        real_hourly_data = self.aggregate_hourly_data()
+
+        # 创建对比图 - 模仿原图的风格
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+        fig.suptitle('时间序列用户立场情感变化分析 - 真实数据 vs 模拟数据对比',
+                     fontsize=16, fontweight='bold')
+
+        # 1. 立场对比 - 模仿原图风格
+        ax1.plot(real_hourly_data['hour'], real_hourly_data['avg_stance'],
+                 marker='o', linewidth=2, markersize=4, label='真实数据',
+                 color='#2E86AB', alpha=0.8)
+        ax1.plot(sim_data['datetime'], sim_data['user_stance'],
+                 marker='s', linewidth=2, markersize=4, label='模拟数据',
+                 color='#A23B72', alpha=0.8, linestyle='--')
+
+        # 设置网格 - 更密集，模仿原图
+        ax1.grid(True, which='major', alpha=0.6, linestyle='-', linewidth=0.8)
+        ax1.grid(True, which='minor', alpha=0.3, linestyle='-', linewidth=0.3)
+        ax1.minorticks_on()
+
+        # 添加中立线
+        ax1.axhline(y=0, color='gray', linestyle='--', alpha=0.7, linewidth=1)
+
+        ax1.set_title('立场(Stance)时间变化', fontsize=14)
+        ax1.set_ylabel('立场', fontsize=12)
+        ax1.set_ylim(-1.00, 1.00)
+        ax1.legend(loc='best', fontsize=10)
+
+        # 设置y轴刻度，模仿原图
+        ax1.set_yticks([-1.00, -0.75, -0.50, -0.25, 0.00, 0.25, 0.50, 0.75, 1.00])
+
+        # 添加y轴标签说明
+        ax1.text(-0.08, 1, '支持', transform=ax1.transAxes,
+                 verticalalignment='top', fontsize=9, color='black')
+        ax1.text(-0.08, 0.5, '中立', transform=ax1.transAxes,
+                 verticalalignment='center', fontsize=9, color='black')
+        ax1.text(-0.08, 0, '批判', transform=ax1.transAxes,
+                 verticalalignment='bottom', fontsize=9, color='black')
+
+        # 2. 情感对比 - 使用相同的风格
+        ax2.plot(real_hourly_data['hour'], real_hourly_data['avg_sentiment'],
+                 marker='o', linewidth=2, markersize=4, label='真实数据',
+                 color='#2E86AB', alpha=0.8)
+        ax2.plot(sim_data['datetime'], sim_data['user_sentiment'],
+                 marker='s', linewidth=2, markersize=4, label='模拟数据',
+                 color='#A23B72', alpha=0.8, linestyle='--')
+
+        # 设置网格 - 更密集，模仿原图
+        ax2.grid(True, which='major', alpha=0.6, linestyle='-', linewidth=0.8)
+        ax2.grid(True, which='minor', alpha=0.3, linestyle='-', linewidth=0.3)
+        ax2.minorticks_on()
+
+        # 添加中立线
+        ax2.axhline(y=0, color='gray', linestyle='--', alpha=0.7, linewidth=1)
+
+        ax2.set_title('情感(Sentiment)时间变化', fontsize=14)
+        ax2.set_ylabel('情感', fontsize=12)
+        ax2.set_ylim(-1.00, 1.00)
+        ax2.legend(loc='best', fontsize=10)
+
+        # 设置y轴刻度，模仿原图
+        ax2.set_yticks([-1.00, -0.75, -0.50, -0.25, 0.00, 0.25, 0.50, 0.75, 1.00])
+
+        # 添加y轴标签说明
+        ax2.text(-0.08, 1, '积极', transform=ax2.transAxes,
+                 verticalalignment='top', fontsize=9, color='black')
+        ax2.text(-0.08, 0.5, '中立', transform=ax2.transAxes,
+                 verticalalignment='center', fontsize=9, color='black')
+        ax2.text(-0.08, 0, '消极', transform=ax2.transAxes,
+                 verticalalignment='bottom', fontsize=9, color='black')
+
+        # 统一设置x轴 - 模仿原图的时间轴格式
+        import matplotlib.dates as mdates
+        from datetime import datetime
+
+        for ax in [ax1, ax2]:
+            ax.set_xlabel('时间间隔时间(小时)', fontsize=12)
+            # 设置x轴时间格式
+            if hasattr(real_hourly_data['hour'].iloc[0], 'strftime'):
+                # 如果是datetime对象，设置时间格式
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+                ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+                ax.xaxis.set_minor_locator(mdates.HourLocator(interval=6))
+            ax.tick_params(axis='x', rotation=45, labelsize=10)
+            ax.tick_params(axis='y', labelsize=10)
+
+        plt.tight_layout()
+
+        # 保存对比图
+        output_file = self.output_dir / photo_name
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        print(f"💾 对比图已保存至: {output_file}")
+
+        # 打印对比统计
+        self.print_comparison_statistics(real_hourly_data, sim_data)
+
+        return fig, real_hourly_data, sim_data
+
+    def print_comparison_statistics(self, real_data, sim_data):
+        """打印真实数据与模拟数据的对比统计"""
+        print(f"\n📊 真实数据 vs 模拟数据对比统计:")
+
+        # 立场对比
+        real_avg_stance = real_data['avg_stance'].mean()
+        sim_avg_stance = sim_data['user_stance'].mean()
+        stance_diff = abs(real_avg_stance - sim_avg_stance)
+
+        print(f"\n立场对比:")
+        print(f"  真实数据平均立场: {real_avg_stance:.3f}")
+        print(f"  模拟数据平均立场: {sim_avg_stance:.3f}")
+        print(f"  立场差异: {stance_diff:.3f}")
+
+        # 情感对比
+        real_avg_sentiment = real_data['avg_sentiment'].mean()
+        sim_avg_sentiment = sim_data['user_sentiment'].mean()
+        sentiment_diff = abs(real_avg_sentiment - sim_avg_sentiment)
+
+        print(f"\n情感对比:")
+        print(f"  真实数据平均情感: {real_avg_sentiment:.3f}")
+        print(f"  模拟数据平均情感: {sim_avg_sentiment:.3f}")
+        print(f"  情感差异: {sentiment_diff:.3f}")
+
+        # 参与度对比
+        real_avg_count = real_data['total_count'].mean()
+        sim_avg_count = sim_data['participant_count'].mean()
+
+        print(f"\n参与度对比:")
+        print(f"  真实数据平均数量: {real_avg_count:.1f} 条/时间段")
+        print(f"  模拟数据平均参与: {sim_avg_count:.1f} 人/时间段")
+
+        # 相关性分析（如果时间点匹配的话）
+        try:
+            # 尝试对齐时间点进行相关性分析
+            # 简化时间对齐：按小时取整
+            real_data_aligned = real_data.copy()
+            real_data_aligned['hour_rounded'] = real_data_aligned['hour'].dt.floor('h')
+
+            sim_data_aligned = sim_data.copy()
+            sim_data_aligned['hour_rounded'] = sim_data_aligned['datetime'].dt.floor('h')
+
+            # 合并数据
+            merged = pd.merge(real_data_aligned, sim_data_aligned,
+                              left_on='hour_rounded', right_on='hour_rounded',
+                              how='inner')
+
+            if len(merged) > 5:  # 至少需要5个匹配点才进行相关性分析
+                stance_corr = np.corrcoef(merged['avg_stance'], merged['user_stance'])[0, 1]
+                sentiment_corr = np.corrcoef(merged['avg_sentiment'], merged['user_sentiment'])[0, 1]
+
+                print(f"\n相关性分析 (匹配的{len(merged)}个时间点):")
+                print(f"  立场相关性: r={stance_corr:.3f}")
+                print(f"  情感相关性: r={sentiment_corr:.3f}")
+            else:
+                print(f"\n相关性分析: 匹配时间点太少({len(merged)}个)，无法进行相关性分析")
+        except Exception as e:
+            print(f"\n相关性分析: 无法计算 ({e})")
+
+        # 总体评估
+        print(f"\n📈 模拟质量评估:")
+        if stance_diff < 0.1 and sentiment_diff < 0.1:
+            print("  ✅ 优秀：模拟结果与真实数据高度一致")
+        elif stance_diff < 0.2 and sentiment_diff < 0.2:
+            print("  ✅ 良好：模拟结果与真实数据较为一致")
+        elif stance_diff < 0.3 and sentiment_diff < 0.3:
+            print("  ⚠️  一般：模拟结果与真实数据存在一定差异")
+        else:
+            print("  ❌ 需要改进：模拟结果与真实数据差异较大")
+
     def generate_report(self):
         """生成完整分析报告"""
         print("📋 生成情感态度分析报告...")
@@ -370,19 +565,44 @@ class Analyzer:
 
         return hourly_data
 
+    def generate_comparison_report(self, simulation_file_path, photo_name="comparison_analysis.png"):
+        """生成对比分析报告 - 只生成对比图，不重复生成基础图"""
+        print("📋 生成对比分析报告...")
 
-def main(hour_interval=1, start_date=None, end_date=None):
+        # 直接生成对比分析，不重复生成基础图表
+        comparison_result = self.plot_comparison_analysis(simulation_file_path, photo_name)
+
+        if comparison_result is None:
+            print("❌ 对比分析失败")
+            return None, None, None
+
+        comparison_fig, real_data, sim_data = comparison_result
+
+        print("✅ 对比分析报告生成完成!")
+
+        return None, real_data, sim_data  # 不返回基础报告数据
+
+
+def main(hour_interval=1, start_date=None, end_date=None, simulation_file=None, photo_name="comparison_analysis.png"):
     """主函数"""
     # 创建分析工具
     analyzer = Analyzer(hour_interval=hour_interval, start_date=start_date, end_date=end_date)
 
-    # 生成报告
-    hourly_data = analyzer.generate_report()
+    if simulation_file:
+        # 生成对比分析报告
+        print("📊 生成包含模拟数据对比的报告...")
+        hourly_data, real_data, sim_data = analyzer.generate_comparison_report(simulation_file, photo_name)
+        result_data = {'hourly_data': hourly_data, 'real_data': real_data, 'sim_data': sim_data}
+    else:
+        # 生成常规报告
+        print("📊 生成常规分析报告...")
+        hourly_data = analyzer.generate_report()
+        result_data = hourly_data
 
     # 显示图表
     plt.show()
 
-    return hourly_data
+    return result_data
 
 
 if __name__ == "__main__":
@@ -391,5 +611,17 @@ if __name__ == "__main__":
     hour_interval = 6  # 默认每小时统计
     start_date = '2025-04-01'
     end_date = '2025-04-20'
+
+    # 模拟数据文件路径（如果需要对比分析）
+    simulation_file = "Output/timeseries/timeseries_sim_20250907_100915/plot_data_points.csv"
+
     print(f"🚀 开始分析，时间间隔: 每{hour_interval}小时")
-    result_data = main(hour_interval=hour_interval, start_date=start_date, end_date=end_date)
+
+    # 如果存在模拟数据文件则进行对比分析
+    if Path(simulation_file).exists():
+        print("📊 发现模拟数据文件，将进行对比分析")
+        result_data = main(hour_interval=hour_interval, start_date=start_date,
+                           end_date=end_date, simulation_file=simulation_file, photo_name="comparison_analysis.png")
+    else:
+        print("📊 未发现模拟数据文件，进行常规分析")
+        result_data = main(hour_interval=hour_interval, start_date=start_date, end_date=end_date)
