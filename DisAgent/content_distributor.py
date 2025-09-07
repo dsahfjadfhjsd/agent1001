@@ -55,12 +55,16 @@ class ContentDistributor:
         """
         print(f"📋 初始化批次分发计划...")
 
-        # 为每个帖子生成post_id
+        # 为每个帖子检查或生成post_id
         for i, post in enumerate(posts):
-            if 'post_id' not in post:
+            if 'post_id' not in post or not post['post_id']:
+                # 只有在没有post_id或为空时才生成新的
                 # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 # post['post_id'] = f"post_{timestamp}_{i:03d}_{uuid.uuid4().hex[:6]}"
                 post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
+                print(f"   🆔 为帖子生成新ID: {post['post_id']}")
+            else:
+                print(f"   ✅ 使用现有post_id: {post['post_id']}")
 
         # 初始化分发计划
         self.distribution_plan = {

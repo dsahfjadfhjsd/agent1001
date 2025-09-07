@@ -13,6 +13,7 @@ import asyncio
 import os
 import sys
 import json
+import uuid
 from datetime import datetime
 from typing import List, Dict, Any
 import pandas as pd
@@ -91,6 +92,14 @@ class IntelligentMultiRoundSimulation:
                 'original_likes': 0,
                 'original_comments': 0
             }
+
+            # 优先使用现有的post_id，如果没有则生成新的
+            if pd.notna(row.get('post_id')) and row.get('post_id'):
+                post['post_id'] = row['post_id']
+            else:
+                # 只有在CSV中没有post_id或为空时才生成新的
+                post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
+
             posts.append(post)
 
         print(f"✅ 加载了 {len(posts)} 个帖子用于模拟")
@@ -170,6 +179,7 @@ class IntelligentMultiRoundSimulation:
         # 轮次结果统计（精简版）
         round_results = {
             'round_number': round_number,
+            'batch_id': self.batch_id,  # 确保包含batch_id
             'posts': [],
             'total_actions': 0,
             'start_time': datetime.now().isoformat()
@@ -405,7 +415,15 @@ async def main():
 
     # 初始化模拟环境
     user_manager = UserProfileManager()
-    users_count = user_manager.load_users_from_file("demo_users_enhanced.csv")
+    try:
+        # 尝试加载已有用户文件
+        users_count = user_manager.load_users_from_file("demo_users_enhanced.csv")
+        print(f"📋 加载已有用户: {users_count} 个")
+    except:
+        # 如果没有已有用户文件，则生成新用户
+        print("📋 未找到已有用户文件，生成新用户...")
+        user_manager.generate_users(count=20, filename=f"demo_users_{simulation.batch_id}.csv")
+
     simulation.initialize_simulation(
         posts=posts,
         total_users=20,  # 20个用户

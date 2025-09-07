@@ -25,7 +25,6 @@ sys.path.append(os.path.dirname(__file__))
 from UserAgent.user_profile_manager import UserProfileManager
 from SimulateEnv import SimulationEngine, SimulationConfig
 from DisAgent.content_distributor import ContentDistributor
-from demo_intelligent_multiround import IntelligentMultiRoundSimulation
 # fmt: on
 
 # 中文字体设置
@@ -48,7 +47,7 @@ class TimeSeriesSimulation:
             batch_id = f"timeseries_sim_{timestamp}"
 
         self.batch_id = batch_id
-        self.simulation = IntelligentMultiRoundSimulation(batch_id)
+        self.distributor = ContentDistributor(batch_id)
         self.output_dir = "Output"  # 设置输出目录
 
         # 时间序列相关参数
@@ -110,12 +109,23 @@ class TimeSeriesSimulation:
                 'content': row['content'],
                 'platform': row.get('platform', 'unknown'),
                 'title': row.get('title', ''),
-                'original_likes': row.get('like_count', 0),
-                'original_comments': row.get('comment_count', 0),
+                # 'original_likes': row.get('like_count', 0),
+                # 'original_comments': row.get('comment_count', 0),
+                'original_likes': 0,
+                'original_comments': 0,
                 'created_datetime': row['created_datetime'],
                 'stance': row.get('stance', '中立'),
                 'sentiment': row.get('sentiment', '中立')
             }
+
+            # 优先使用现有的post_id，如果没有则生成新的
+            if pd.notna(row.get('post_id')) and row.get('post_id'):
+                post['post_id'] = row['post_id']
+            else:
+                # 只有在CSV中没有post_id或为空时才生成新的
+                import uuid
+                post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
+
             posts.append(post)
 
         self.all_posts = posts
@@ -187,8 +197,8 @@ class TimeSeriesSimulation:
             print("📋 未找到已有用户文件，生成新用户...")
             user_manager.generate_users(count=20, filename=f"timeseries_{self.batch_id}.csv")
 
-        # 使用原始初始化方法（向后兼容）
-        self.simulation.distributor = ContentDistributor(self.batch_id)
+        # 使用直接的ContentDistributor
+        self.distributor = ContentDistributor(self.batch_id)
         all_users = user_manager.get_all_users()
 
         print(f"🎯 时间序列模拟参数:")
@@ -227,7 +237,7 @@ class TimeSeriesSimulation:
             # 初始化分发器（首次有可用帖子时）
             if not distributor_initialized:
                 print("🔧 首次初始化分发器...")
-                self.simulation.distributor.initialize_batch(available_posts, all_users)
+                self.distributor.initialize_batch(available_posts, all_users)
                 distributor_initialized = True
             else:
                 # 更新分发器的可用帖子
@@ -235,9 +245,9 @@ class TimeSeriesSimulation:
 
             # 调试信息：检查分发器状态
             print(f"   分发器状态检查:")
-            if self.simulation.distributor.distribution_plan:
-                posts_count = len(self.simulation.distributor.distribution_plan.get('posts', {}))
-                users_count = len(self.simulation.distributor.distribution_plan.get('users', {}))
+            if self.distributor.distribution_plan:
+                posts_count = len(self.distributor.distribution_plan.get('posts', {}))
+                users_count = len(self.distributor.distribution_plan.get('users', {}))
                 print(f"      - 可用帖子: {posts_count} 个")
                 print(f"      - 可用用户: {users_count} 个")
             else:
@@ -245,7 +255,7 @@ class TimeSeriesSimulation:
 
             try:
                 # 运行单轮模拟
-                round_result = await self.simulation.run_round(
+                round_result = await self._run_time_series_round(
                     round_number=step + 1,
                     posts_per_round=posts_per_round_actual,
                     users_per_post=users_per_post,
@@ -302,14 +312,152 @@ class TimeSeriesSimulation:
             'stance_history': self.stance_history
         }
 
+    async def _run_time_series_round(self, round_number: int,
+                                     posts_per_round: int = 5,
+                                     users_per_post: int = 10,
+                                     rounds_per_post: int = 1,
+                                     config: SimulationConfig = None) -> Dict[str, Any]:
+        """
+        运行时间序列单轮模拟
+
+        Args:
+            round_number: 轮次号
+            posts_per_round: 每轮参与的帖子数量
+            users_per_post: 每个帖子分配的用户数量
+            rounds_per_post: 每个帖子内的交互轮数
+            config: 模拟配置
+
+        Returns:
+            轮次结果
+        """
+        print(f"🎮 === 开始第 {round_number} 轮时间序列模拟 ===")
+
+        # 生成分发计划
+        distribution = self.distributor.generate_round_distribution(
+            round_number=round_number,
+            posts_per_round=posts_per_round,
+            users_per_post=users_per_post,
+            hot_post_ratio=0.2 if round_number > 1 else 0.0  # 时间序列模拟中热门帖子比例较低
+        )
+
+        if config is None:
+            config = SimulationConfig(
+                max_concurrent_requests=3,
+                action_probability=0.8,
+                comment_probability=0.6,
+                export_prompts=False,  # 时间序列模拟默认不导出prompt
+                prompt_export_dir=f"Output/prompt_exports/timeseries_{self.batch_id}/round_{round_number}"
+            )
+
+        if config.prompt_export_dir is None and config.export_prompts:
+            config.prompt_export_dir = f"Output/prompt_exports/timeseries_{self.batch_id}/round_{round_number}"
+
+        # 创建引擎
+        engine = SimulationEngine(config)
+
+        # 轮次结果统计
+        round_results = {
+            'round_number': round_number,
+            'batch_id': self.batch_id,  # 确保包含batch_id
+            'posts': [],
+            'total_actions': 0,
+            'start_time': datetime.now().isoformat()
+        }
+
+        try:
+            # 为每个分发的帖子进行模拟
+            for post_idx, (post_id, post_dist) in enumerate(distribution['posts'].items(), 1):
+                print(f"📝 模拟帖子 {post_idx}/{len(distribution['posts'])}: {post_id}")
+
+                # 获取帖子内容
+                post_data = self.distributor.distribution_plan['posts'][post_id]
+                post_content = post_data['content']
+
+                # 获取分配的用户
+                assigned_user_ids = post_dist['assigned_users']
+                user_profiles = []
+                for user_id in assigned_user_ids:
+                    user_data = self.distributor.distribution_plan['users'][user_id]
+                    user_profiles.append(user_data['profile'])
+
+                print(f"   分配用户: {len(user_profiles)} 个")
+
+                # 创建会话
+                session_post_id = engine.create_session(
+                    post_content=post_content,
+                    post_id=post_id,
+                    batch_id=self.batch_id
+                )
+
+                # 运行帖子内的多轮交互
+                post_actions = []
+                for inner_round in range(1, rounds_per_post + 1):
+                    print(f"   🔄 内部轮次 {inner_round}/{rounds_per_post}")
+
+                    inner_actions = await engine.simulate_round_with_thinking(user_profiles)
+                    if inner_actions:
+                        post_actions.extend(inner_actions)
+
+                        # 统计行为类型
+                        behavior_stats = {}
+                        for action in inner_actions:
+                            action_type = action.action_type.value
+                            behavior_stats[action_type] = behavior_stats.get(action_type, 0) + 1
+
+                        print(f"      - 生成 {len(inner_actions)} 个行为: {behavior_stats}")
+                    else:
+                        print(f"      - 无行为生成")
+
+                # 记录帖子结果
+                post_result = {
+                    'post_id': post_id,
+                    'users_count': len(user_profiles),
+                    'actions_count': len(post_actions),
+                    'action_types': {}
+                }
+
+                # 统计行为类型
+                for action in post_actions:
+                    action_type = action.action_type.value
+                    post_result['action_types'][action_type] = post_result['action_types'].get(action_type, 0) + 1
+
+                round_results['posts'].append(post_result)
+                round_results['total_actions'] += len(post_actions)
+
+                print(f"   ✅ 帖子 {post_id} 完成: {len(post_actions)} 个行为")
+
+        finally:
+            await engine.close()
+
+        # 完成轮次统计
+        round_results['end_time'] = datetime.now().isoformat()
+        round_results['duration_minutes'] = (
+            datetime.fromisoformat(round_results['end_time']) -
+            datetime.fromisoformat(round_results['start_time'])
+        ).total_seconds() / 60
+
+        # 更新分发器的轮次结果（用于下一轮的热门度计算）
+        self.distributor.update_round_results(round_number, round_results)
+
+        print(f"✅ 第 {round_number} 轮时间序列模拟完成")
+        print(f"   参与帖子: {len(round_results['posts'])} 个")
+        print(f"   总行为数: {round_results['total_actions']} 个")
+        print(f"   耗时: {round_results['duration_minutes']:.1f} 分钟")
+
+        return round_results
+
     def _update_distributor_posts(self, available_posts: List[Dict[str, Any]]):
         """更新分发器的可用帖子（简化版本）"""
         import uuid
 
-        # 为新帖子分配post_id
+        # 检查并确保每个帖子都有post_id
         for post in available_posts:
-            if 'post_id' not in post:
+            if 'post_id' not in post or not post['post_id']:
+                # 只有在没有post_id或为空时才生成新的
                 post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
+                print(f"   ⚠️ 为帖子生成新post_id: {post['post_id']}")
+            # else:
+            #     print(f"   ✅ 使用现有post_id: {post['post_id']}")
 
         # 创建新的帖子字典，保持原有结构
         new_posts_dict = {}
@@ -317,11 +465,11 @@ class TimeSeriesSimulation:
             post_id = post['post_id']
 
             # 如果帖子已存在，保留原有数据，否则创建新数据
-            if (self.simulation.distributor.distribution_plan and
-                'posts' in self.simulation.distributor.distribution_plan and
-                    post_id in self.simulation.distributor.distribution_plan['posts']):
+            if (self.distributor.distribution_plan and
+                'posts' in self.distributor.distribution_plan and
+                    post_id in self.distributor.distribution_plan['posts']):
                 # 保留已有帖子数据
-                new_posts_dict[post_id] = self.simulation.distributor.distribution_plan['posts'][post_id]
+                new_posts_dict[post_id] = self.distributor.distribution_plan['posts'][post_id]
             else:
                 # 创建新帖子数据
                 new_posts_dict[post_id] = {
@@ -344,10 +492,10 @@ class TimeSeriesSimulation:
                 }
 
         # 更新分发计划中的帖子
-        if self.simulation.distributor.distribution_plan:
-            self.simulation.distributor.distribution_plan['posts'] = new_posts_dict
+        if self.distributor.distribution_plan:
+            self.distributor.distribution_plan['posts'] = new_posts_dict
             # 保存更新后的计划
-            self.simulation.distributor._save_plan()
+            self.distributor._save_plan()
 
     def _get_round_active_users(self, round_number: int) -> List[str]:
         """
@@ -362,11 +510,11 @@ class TimeSeriesSimulation:
         active_users = set()
 
         # 从分发计划中获取本轮分配的用户
-        if (self.simulation.distributor.distribution_plan and
-            'rounds' in self.simulation.distributor.distribution_plan and
-                len(self.simulation.distributor.distribution_plan['rounds']) >= round_number):
+        if (self.distributor.distribution_plan and
+            'rounds' in self.distributor.distribution_plan and
+                len(self.distributor.distribution_plan['rounds']) >= round_number):
 
-            round_data = self.simulation.distributor.distribution_plan['rounds'][round_number - 1]
+            round_data = self.distributor.distribution_plan['rounds'][round_number - 1]
             for post_id, post_data in round_data['posts'].items():
                 assigned_users = post_data.get('assigned_users', [])
                 active_users.update(assigned_users)
@@ -711,7 +859,7 @@ async def main():
         user_path="demo_users_0907_2.csv",  # 使用已有用户文件
         start_date="2025-03-31 18:00",  # 从2025年3月31日18:00开始
         sample_ratio=0.8,               # 采样比例
-        max_time_steps=77,               # 运行77个时间步
+        max_time_steps=5,               # 运行77个时间步
         time_step_hours=6,              # 每6小时一步
         posts_per_round=5,              # 每轮5个帖子
         users_per_post=20,               # 每个帖子20个用户
