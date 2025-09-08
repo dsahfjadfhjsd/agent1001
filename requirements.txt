@@ -1,0 +1,120 @@
+# Agent1001 - 智能社交媒体分发系统
+# 统一依赖管理文件
+
+# ========== 核心AI和机器学习库 ==========
+# torch>=2.0.0  # 已手动安装 torch-2.8.0+cu128
+# transformers>=4.30.0  # 已安装 4.56.0
+# sentence-transformers>=2.2.2  # 已通过官方PyPI安装 5.1.0
+# huggingface-hub>=0.16.0  # 已安装
+
+
+# ========== 分布式计算框架 ==========
+# ray>=2.5.0  # 已通过官方PyPI安装 2.49.1
+
+# ========== 向量数据库和搜索 ==========
+faiss-cpu>=1.7.4
+# milvus>=2.3.0  # 暂时注释，可选依赖
+
+# ========== LangChain和OpenAI ==========
+langchain>=0.1.0
+langchain-openai>=0.0.5
+openai>=1.0.0
+
+# ========== Web框架和实时通信 ==========
+Flask>=2.0.0,<3.0.0
+Flask-SocketIO>=5.1.0,<6.0.0
+python-socketio>=5.0.0,<6.0.0
+python-engineio>=4.0.0,<5.0.0
+eventlet>=0.33.0
+Jinja2>=3.0.0,<4.0.0
+MarkupSafe>=2.0.0,<3.0.0
+Werkzeug>=2.0.0,<3.0.0
+
+# ========== 数据处理和科学计算 ==========
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
+
+# ========== 网络图分析 ==========
+networkx>=3.1  # DISTAgent框架必需依赖
+
+# ========== 异步和并发 ==========
+# aiofiles>=23.1.0  # 已通过官方PyPI安装
+# aiohttp>=3.8.0  # 已通过官方PyPI安装
+
+# ========== HTTP客户端和请求 ==========
+requests>=2.31.0
+# httpx>=0.24.0  # 已通过官方PyPI安装
+
+# ========== 配置和环境管理 ==========
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pyyaml>=6.0
+
+# ========== 日志和监控 ==========
+# structlog>=23.1.0  # 已通过官方PyPI安装
+# prometheus-client>=0.17.0  # 可选
+
+# ========== 数据可视化 ==========
+# matplotlib>=3.7.0  # 已通过官方PyPI安装
+# seaborn>=0.12.0  # 已通过官方PyPI安装
+# plotly>=5.15.0  # 可选
+
+# ========== 测试和开发工具 ==========
+# pytest>=7.4.0  # 已通过官方PyPI安装
+# pytest-asyncio>=0.21.0  # 已通过官方PyPI安装
+# pytest-mock>=3.11.0  # 已通过官方PyPI安装
+# black>=23.0.0  # 开发工具，可选
+# flake8>=6.0.0  # 开发工具，可选
+
+# ========== 性能分析 ==========
+# memory-profiler>=0.61.0  # 可选
+# psutil>=5.9.0  # 已通过官方PyPI安装
+
+# ========== 数据存储 ==========
+# sqlalchemy>=2.0.0  # 可选，如果需要数据库
+
+# ========== 加密和安全 ==========
+# cryptography>=41.0.0  # 可选
+# bcrypt>=4.0.0  # 可选
+
+# ========== 时间处理 ==========
+# python-dateutil>=2.8.0  # 已通过官方PyPI安装
+# pytz>=2023.3  # 可选
+
+# ========== 图像处理 ==========
+# Pillow>=10.0.0  # 已通过官方PyPI安装
+
+# ========== JSON和数据序列化 ==========
+# ujson>=5.8.0  # 可选，性能优化
+# msgpack>=1.0.0  # 可选
+
+# ========== 进度条和CLI工具 ==========
+# tqdm>=4.65.0  # 已通过官方PyPI安装
+# click>=8.1.0  # 可选
+
+# ========== 缓存 ==========
+# cachetools>=5.3.0  # 可选
+
+# ========== 正则表达式增强 ==========
+# regex>=2023.6.0  # 可选
+
+# ========== 数学计算 ==========
+# sympy>=1.12  # 可选
+
+# ========== 消息队列和流处理 ==========
+# kafka-python>=2.0.2  # 已移除：改用内存事件总线，无需Kafka
+# redis>=4.5.0  # 可选，缓存时需要
+
+# ========== 兼容性说明 ==========
+# 注意：某些包在Windows环境下可能需要特殊处理
+# 1. sentence-transformers: 如果安装失败，尝试使用 --index-url https://pypi.org/simple/
+# 2. ray: 在Windows下可能有兼容性问题，已暂时注释
+# 3. milvus: 需要额外的系统依赖，已暂时注释
+
+# ========== 安装建议 ==========
+# 推荐安装顺序：
+# 1. pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# 2. pip install -r requirements.txt
+# 3. 如果有GPU，确保CUDA版本匹配

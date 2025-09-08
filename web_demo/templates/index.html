@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent1001 - 智能社交媒体仿真演示</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.2/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <i class="fas fa-brain"></i>
+                    <h1>Agent1001</h1>
+                    <span class="subtitle">智能社交媒体仿真系统</span>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-circle status-indicator" id="connection-status"></i>
+                        <span id="connection-text">连接中...</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-clock"></i>
+                        <span id="current-time"></span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Parameter Panel -->
+            <aside class="parameter-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-cogs"></i> 仿真参数</h2>
+                    <button class="collapse-btn" id="collapse-params">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+
+                <div class="panel-content">
+                    <!-- Basic Parameters -->
+                    <div class="param-section">
+                        <h3><i class="fas fa-sliders-h"></i> 基础参数</h3>
+                        <div class="param-group">
+                            <label for="rounds-before-eval">评估前轮数</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="rounds-before-eval" min="1" max="10" value="2">
+                                <span class="input-unit">轮</span>
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="rounds-after-eval">评估后轮数</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="rounds-after-eval" min="1" max="10" value="1">
+                                <span class="input-unit">轮</span>
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="posts-per-round">每场景帖子数</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="posts-per-round" min="1" max="20" value="3">
+                                <span class="input-unit">个</span>
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="users-per-post">每帖用户数</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="users-per-post" min="1" max="50" value="6">
+                                <span class="input-unit">个</span>
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="rounds-per-post">每帖轮数</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="rounds-per-post" min="1" max="10" value="1">
+                                <span class="input-unit">轮</span>
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="total-users">总用户数</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="total-users" min="1" max="200" value="24">
+                                <span class="input-unit">个</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Parameters -->
+                    <div class="param-section">
+                        <h3><i class="fas fa-microscope"></i> 高级参数</h3>
+                        <div class="param-group">
+                            <label for="max-concurrent">最大并发数</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="max-concurrent" min="1" max="50" value="10">
+                                <span class="input-unit">个</span>
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="thinking-model">思维模型</label>
+                            <select id="thinking-model">
+                                <option value="qwen-max" selected>Qwen-Max</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="gpt-4">GPT-4</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                            </select>
+                        </div>
+
+                        <div class="param-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="enable-prompt-export">
+                                <span class="checkmark"></span>
+                                导出提示词
+                            </label>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="posts-source">内容来源</label>
+                            <select id="posts-source">
+                                <option value="csv" selected>CSV文件</option>
+                                <option value="sample">示例内容</option>
+                            </select>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="csv-path">CSV路径</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="csv-path" value="Data/integrated_data/XMSU7D_integrated_articles.csv">
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="max-posts">最大帖子数</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="max-posts" min="1" max="200" value="12">
+                                <span class="input-unit">个</span>
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="action-probability">行动概率</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="action-probability" min="0" max="1" step="0.05" value="0.7">
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="comment-probability">评论概率</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="comment-probability" min="0" max="1" step="0.05" value="0.5">
+                            </div>
+                        </div>
+
+                        <div class="param-group">
+                            <label for="batch-id">批次ID（可选）</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="batch-id" placeholder="留空自动生成">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Control Buttons -->
+                    <div class="control-section">
+                        <button class="btn btn-primary" id="start-simulation">
+                            <i class="fas fa-play"></i>
+                            开始仿真
+                        </button>
+                        <button class="btn btn-secondary" id="stop-simulation" disabled>
+                            <i class="fas fa-stop"></i>
+                            停止仿真
+                        </button>
+                        <button class="btn btn-tertiary" id="reset-params">
+                            <i class="fas fa-undo"></i>
+                            重置参数
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Display Area -->
+            <main class="display-area">
+                <!-- Status Bar -->
+                <div class="status-bar">
+                    <div class="status-left">
+                        <div class="status-badge" id="simulation-status">
+                            <i class="fas fa-pause"></i>
+                            <span>待机中</span>
+                        </div>
+                        <div class="progress-info">
+                            <span id="current-round-display">轮次: 0/0</span>
+                        </div>
+                    </div>
+                    <div class="status-right">
+                        <div class="stats-grid">
+                            <div class="stat">
+                                <span class="stat-label">总帖子</span>
+                                <span class="stat-value" id="total-posts">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">总用户</span>
+                                <span class="stat-value" id="total-users">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">总互动</span>
+                                <span class="stat-value" id="total-actions">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content Tabs -->
+                <div class="content-tabs">
+                    <div class="tab-header">
+                        <button class="tab-btn active" data-tab="realtime">
+                            <i class="fas fa-broadcast-tower"></i>
+                            实时展示
+                        </button>
+                        <button class="tab-btn" data-tab="analytics">
+                            <i class="fas fa-chart-line"></i>
+                            数据分析
+                        </button>
+                        <button class="tab-btn" data-tab="logs">
+                            <i class="fas fa-terminal"></i>
+                            系统日志
+                        </button>
+                    </div>
+
+                    <!-- Real-time Display Tab -->
+                    <div class="tab-content active" id="realtime-tab">
+                        <div class="realtime-grid">
+                            <!-- Post Distribution Area -->
+                            <div class="section-card post-distribution">
+                                <div class="section-header">
+                                    <h3><i class="fas fa-paper-plane"></i> 帖子展示</h3>
+                                    <div class="section-controls">
+                                        <button class="icon-btn" id="auto-scroll-posts">
+                                            <i class="fas fa-arrows-alt-v"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="posts-container" id="posts-container">
+                                    <div class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>等待帖子分发...</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- User Simulation Area -->
+                            <div class="section-card user-simulation">
+                                <div class="section-header">
+                                    <h3><i class="fas fa-users"></i> 用户仿真</h3>
+                                    <div class="simulation-stats">
+                                        <span class="active-users">活跃: <span id="active-users-count">0</span></span>
+                                    </div>
+                                </div>
+                                <div class="users-container" id="users-container">
+                                    <div class="empty-state">
+                                        <i class="fas fa-user-clock"></i>
+                                        <p>等待用户仿真...</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Evaluation Results Area -->
+                            <div class="section-card evaluation-results">
+                                <div class="section-header">
+                                    <h3><i class="fas fa-chart-bar"></i> 评估结果</h3>
+                                </div>
+                                <div class="evaluation-container" id="evaluation-container">
+                                    <div class="empty-state">
+                                        <i class="fas fa-analytics"></i>
+                                        <p>等待评估结果...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Tab -->
+                    <div class="tab-content" id="analytics-tab">
+                        <div class="analytics-grid">
+                            <div class="chart-container">
+                                <canvas id="rounds-chart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="interactions-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logs Tab -->
+                    <div class="tab-content" id="logs-tab">
+                        <div class="logs-container">
+                            <div class="logs-header">
+                                <h3>系统日志</h3>
+                                <button class="btn btn-sm" id="clear-logs">
+                                    <i class="fas fa-trash"></i>
+                                    清空日志
+                                </button>
+                            </div>
+                            <div class="logs-content" id="logs-content">
+                                <!-- Logs will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p id="loading-message">初始化系统...</p>
+        </div>
+    </div>
+
+    <!-- Notification System -->
+    <div class="notification-container" id="notifications"></div>
+
+    <!-- Post Detail Modal -->
+    <div class="modal-overlay" id="post-detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-post-title">帖子详情</h2>
+                <button class="modal-close" id="close-post-detail">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="post-detail-info">
+                    <div class="post-detail-meta">
+                        <span class="post-detail-id">ID: <span id="modal-post-id"></span></span>
+                        <span class="post-detail-round">轮次: <span id="modal-post-round"></span></span>
+                        <span class="post-detail-time">时间: <span id="modal-post-time"></span></span>
+                    </div>
+                    <div class="post-detail-content" id="modal-post-content"></div>
+                    <div class="post-detail-stats">
+                        <div class="stat-item">
+                            <i class="fas fa-heart"></i>
+                            <span id="modal-likes-count">0</span> 点赞
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-comment"></i>
+                            <span id="modal-comments-count">0</span> 评论
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-share"></i>
+                            <span id="modal-shares-count">0</span> 分享
+                        </div>
+                    </div>
+                </div>
+                <div class="comments-section">
+                    <h3><i class="fas fa-comments"></i> 评论列表</h3>
+                    <div class="comments-container" id="modal-comments-container">
+                        <div class="empty-comments">
+                            <i class="fas fa-comment-slash"></i>
+                            <p>暂无评论</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

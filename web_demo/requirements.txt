@@ -1,0 +1,93 @@
+# Agent1001 Web Demo - 完整依赖列表
+# 运行 app.py 所需的所有依赖库
+
+# ========== Web框架和实时通信 ==========
+Flask>=2.3.0,<3.0.0
+Flask-SocketIO>=5.3.0,<6.0.0
+python-socketio>=5.8.0,<6.0.0
+python-engineio>=4.7.0,<5.0.0
+eventlet>=0.33.3
+Jinja2>=3.1.0,<4.0.0
+MarkupSafe>=2.1.0,<3.0.0
+Werkzeug>=2.3.0,<3.0.0
+
+# ========== 核心AI和机器学习库 ==========
+torch>=2.0.0
+transformers>=4.30.0
+sentence-transformers>=2.2.2
+huggingface-hub>=0.16.0
+
+# ========== 分布式计算框架 ==========
+ray>=2.5.0
+
+# ========== LangChain和OpenAI ==========
+langchain>=0.1.0
+langchain-openai>=0.0.5
+openai>=1.0.0
+
+# ========== 数据处理和科学计算 ==========
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
+
+# ========== 网络图分析 ==========
+networkx>=3.1
+
+# ========== 向量数据库和搜索 ==========
+faiss-cpu>=1.7.4
+
+# ========== 异步和并发 ==========
+aiofiles>=23.1.0
+aiohttp>=3.8.0
+
+# ========== HTTP客户端和请求 ==========
+requests>=2.31.0
+httpx>=0.24.0
+
+# ========== 配置和环境管理 ==========
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pyyaml>=6.0
+
+# ========== 日志和监控 ==========
+structlog>=23.1.0
+
+# ========== 数据可视化 ==========
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# ========== 系统监控 ==========
+psutil>=5.9.0
+
+# ========== 时间处理 ==========
+python-dateutil>=2.8.0
+
+# ========== 图像处理 ==========
+Pillow>=10.0.0
+
+# ========== 进度条和CLI工具 ==========
+tqdm>=4.65.0
+
+# ========== 测试和开发工具 ==========
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.11.0
+
+# ========== 安装说明 ==========
+# 推荐安装步骤：
+# 1. 激活conda环境: conda activate agent1001
+# 2. 安装PyTorch (如果有GPU): pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# 3. 安装其他依赖: pip install -r requirements.txt
+# 4. 配置环境变量: 确保Config/.env文件包含OPENAI_API_KEY
+
+# ========== Windows兼容性说明 ==========
+# 如果在Windows环境下遇到安装问题：
+# 1. sentence-transformers: 使用 --index-url https://pypi.org/simple/
+# 2. ray: 确保使用最新版本，可能需要Visual Studio Build Tools
+# 3. eventlet: 如果有问题可以尝试使用 gevent 替代
+
+# ========== 可选优化依赖 ==========
+# ujson>=5.8.0  # JSON处理性能优化
+# cachetools>=5.3.0  # 缓存优化
+# redis>=4.5.0  # 如果需要Redis缓存

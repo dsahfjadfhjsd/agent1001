@@ -1,0 +1,819 @@
+{
+  "batch_id": "eval_loop_20250904_145512",
+  "created_at": "2025-09-04T14:55:13.140655",
+  "posts": {
+    "post_b2726faef58d": {
+      "post_id": "post_b2726faef58d",
+      "content": "这是测试帖子 1，用于演示系统功能。",
+      "platform": "unknown",
+      "title": "测试帖子 1",
+      "original_metrics": {
+        "likes": 0,
+        "comments": 0
+      },
+      "simulation_metrics": {
+        "total_interactions": 0,
+        "total_likes": 0,
+        "total_comments": 0,
+        "unique_users": 0,
+        "heat_score": 0.0
+      },
+      "round_history": []
+    },
+    "post_287df953f70d": {
+      "post_id": "post_287df953f70d",
+      "content": "这是测试帖子 2，用于演示系统功能。",
+      "platform": "unknown",
+      "title": "测试帖子 2",
+      "original_metrics": {
+        "likes": 0,
+        "comments": 0
+      },
+      "simulation_metrics": {
+        "total_interactions": 0,
+        "total_likes": 0,
+        "total_comments": 0,
+        "unique_users": 0,
+        "heat_score": 0.0
+      },
+      "round_history": []
+    },
+    "post_a7d4f3daf110": {
+      "post_id": "post_a7d4f3daf110",
+      "content": "这是测试帖子 3，用于演示系统功能。",
+      "platform": "unknown",
+      "title": "测试帖子 3",
+      "original_metrics": {
+        "likes": 0,
+        "comments": 0
+      },
+      "simulation_metrics": {
+        "total_interactions": 0,
+        "total_likes": 0,
+        "total_comments": 0,
+        "unique_users": 0,
+        "heat_score": 0.0
+      },
+      "round_history": []
+    },
+    "post_cad7e66c9efb": {
+      "post_id": "post_cad7e66c9efb",
+      "content": "这是测试帖子 4，用于演示系统功能。",
+      "platform": "unknown",
+      "title": "测试帖子 4",
+      "original_metrics": {
+        "likes": 0,
+        "comments": 0
+      },
+      "simulation_metrics": {
+        "total_interactions": 0,
+        "total_likes": 0,
+        "total_comments": 0,
+        "unique_users": 0,
+        "heat_score": 0.0
+      },
+      "round_history": []
+    },
+    "post_4b1e7ce59399": {
+      "post_id": "post_4b1e7ce59399",
+      "content": "这是测试帖子 5，用于演示系统功能。",
+      "platform": "unknown",
+      "title": "测试帖子 5",
+      "original_metrics": {
+        "likes": 0,
+        "comments": 0
+      },
+      "simulation_metrics": {
+        "total_interactions": 0,
+        "total_likes": 0,
+        "total_comments": 0,
+        "unique_users": 0,
+        "heat_score": 0.0
+      },
+      "round_history": []
+    }
+  },
+  "users": {
+    "USER_47507d5d": {
+      "user_id": "USER_47507d5d",
+      "profile": {
+        "user_id": "USER_47507d5d",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "36-50",
+        "gender": "female",
+        "occupation": "其他",
+        "education": "本科",
+        "location": "上海",
+        "activity_level": "high",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "质疑小米"
+        ],
+        "sentiment": "积极",
+        "sentiment_value": 1.0,
+        "sentiment_keywords": [
+          "表达支持"
+        ],
+        "intent": "情感表达",
+        "intent_keywords": [
+          "吐槽"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_25c4bec0": {
+      "user_id": "USER_25c4bec0",
+      "profile": {
+        "user_id": "USER_25c4bec0",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "26-35",
+        "gender": "male",
+        "occupation": "医生",
+        "education": "硕士",
+        "location": "深圳",
+        "activity_level": "medium",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "等待调查结果"
+        ],
+        "sentiment": "消极",
+        "sentiment_value": -1.0,
+        "sentiment_keywords": [
+          "质疑技术"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "求证"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_23f767a2": {
+      "user_id": "USER_23f767a2",
+      "profile": {
+        "user_id": "USER_23f767a2",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "18-25",
+        "gender": "male",
+        "occupation": "律师",
+        "education": "高中",
+        "location": "成都",
+        "activity_level": "low",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "批评技术缺陷"
+        ],
+        "sentiment": "积极",
+        "sentiment_value": 1.0,
+        "sentiment_keywords": [
+          "认可观点"
+        ],
+        "intent": "情感表达",
+        "intent_keywords": [
+          "分享感受"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_5eca0f52": {
+      "user_id": "USER_5eca0f52",
+      "profile": {
+        "user_id": "USER_5eca0f52",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "18-25",
+        "gender": "female",
+        "occupation": "金融",
+        "education": "博士",
+        "location": "杭州",
+        "activity_level": "low",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "需要更多信息"
+        ],
+        "sentiment": "消极",
+        "sentiment_value": -1.0,
+        "sentiment_keywords": [
+          "表达愤怒"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "需要更多信息"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_50df581d": {
+      "user_id": "USER_50df581d",
+      "profile": {
+        "user_id": "USER_50df581d",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "26-35",
+        "gender": "male",
+        "occupation": "工程师",
+        "education": "高中",
+        "location": "深圳",
+        "activity_level": "low",
+        "stance": "支持",
+        "stance_value": 1.0,
+        "stance_keywords": [
+          "认为错在驾驶员"
+        ],
+        "sentiment": "消极",
+        "sentiment_value": -1.0,
+        "sentiment_keywords": [
+          "表达愤怒"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "求证"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_0da72407": {
+      "user_id": "USER_0da72407",
+      "profile": {
+        "user_id": "USER_0da72407",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "51-65",
+        "gender": "male",
+        "occupation": "其他",
+        "education": "高中",
+        "location": "杭州",
+        "activity_level": "low",
+        "stance": "支持",
+        "stance_value": 1.0,
+        "stance_keywords": [
+          "为小米辩护"
+        ],
+        "sentiment": "积极",
+        "sentiment_value": 1.0,
+        "sentiment_keywords": [
+          "赞赏公司反馈"
+        ],
+        "intent": "情感表达",
+        "intent_keywords": [
+          "表态"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_ac1257e0": {
+      "user_id": "USER_ac1257e0",
+      "profile": {
+        "user_id": "USER_ac1257e0",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "36-50",
+        "gender": "male",
+        "occupation": "教师",
+        "education": "本科",
+        "location": "武汉",
+        "activity_level": "low",
+        "stance": "支持",
+        "stance_value": 1.0,
+        "stance_keywords": [
+          "相信官方说明"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "阐述观点"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "搜集事实"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_4d1ca986": {
+      "user_id": "USER_4d1ca986",
+      "profile": {
+        "user_id": "USER_4d1ca986",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "51-65",
+        "gender": "female",
+        "occupation": "设计师",
+        "education": "博士",
+        "location": "深圳",
+        "activity_level": "high",
+        "stance": "支持",
+        "stance_value": 1.0,
+        "stance_keywords": [
+          "认为错在驾驶员"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "理性讨论"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "需要更多信息"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_bedc77e5": {
+      "user_id": "USER_bedc77e5",
+      "profile": {
+        "user_id": "USER_bedc77e5",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "51-65",
+        "gender": "male",
+        "occupation": "媒体",
+        "education": "硕士",
+        "location": "北京",
+        "activity_level": "low",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "担心安全问题"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "中立陈述"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "想了解真相"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_42ab21d6": {
+      "user_id": "USER_42ab21d6",
+      "profile": {
+        "user_id": "USER_42ab21d6",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "26-35",
+        "gender": "female",
+        "occupation": "金融",
+        "education": "高中",
+        "location": "北京",
+        "activity_level": "low",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "质疑小米"
+        ],
+        "sentiment": "消极",
+        "sentiment_value": -1.0,
+        "sentiment_keywords": [
+          "表达不满"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "核实"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_0ef8e6c0": {
+      "user_id": "USER_0ef8e6c0",
+      "profile": {
+        "user_id": "USER_0ef8e6c0",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "51-65",
+        "gender": "female",
+        "occupation": "金融",
+        "education": "博士",
+        "location": "北京",
+        "activity_level": "medium",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "批评技术缺陷"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "事实推测"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "想了解真相"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_0a1c2218": {
+      "user_id": "USER_0a1c2218",
+      "profile": {
+        "user_id": "USER_0a1c2218",
+        "created_at": "2025-09-04T14:55:13.138655",
+        "age_group": "26-35",
+        "gender": "male",
+        "occupation": "律师",
+        "education": "高中",
+        "location": "上海",
+        "activity_level": "medium",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "等待调查结果"
+        ],
+        "sentiment": "消极",
+        "sentiment_value": -1.0,
+        "sentiment_keywords": [
+          "讽刺批判"
+        ],
+        "intent": "利益实践",
+        "intent_keywords": [
+          "呼吁改进"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_f15a8a1f": {
+      "user_id": "USER_f15a8a1f",
+      "profile": {
+        "user_id": "USER_f15a8a1f",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "18-25",
+        "gender": "female",
+        "occupation": "其他",
+        "education": "硕士",
+        "location": "北京",
+        "activity_level": "low",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "等待调查结果"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "阐述观点"
+        ],
+        "intent": "利益实践",
+        "intent_keywords": [
+          "社会监督"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_93e84787": {
+      "user_id": "USER_93e84787",
+      "profile": {
+        "user_id": "USER_93e84787",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "26-35",
+        "gender": "male",
+        "occupation": "医生",
+        "education": "高中",
+        "location": "武汉",
+        "activity_level": "high",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "保持观望"
+        ],
+        "sentiment": "积极",
+        "sentiment_value": 1.0,
+        "sentiment_keywords": [
+          "支持技术"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "核实"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_cd200801": {
+      "user_id": "USER_cd200801",
+      "profile": {
+        "user_id": "USER_cd200801",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "26-35",
+        "gender": "female",
+        "occupation": "学生",
+        "education": "本科",
+        "location": "西安",
+        "activity_level": "medium",
+        "stance": "支持",
+        "stance_value": 1.0,
+        "stance_keywords": [
+          "认为错在驾驶员"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "阐述观点"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "搜集事实"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_f82e0ded": {
+      "user_id": "USER_f82e0ded",
+      "profile": {
+        "user_id": "USER_f82e0ded",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "51-65",
+        "gender": "female",
+        "occupation": "工程师",
+        "education": "高中",
+        "location": "深圳",
+        "activity_level": "medium",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "理性分析"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "事实推测"
+        ],
+        "intent": "利益实践",
+        "intent_keywords": [
+          "寻求帮助"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_78c6332b": {
+      "user_id": "USER_78c6332b",
+      "profile": {
+        "user_id": "USER_78c6332b",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "26-35",
+        "gender": "male",
+        "occupation": "医生",
+        "education": "本科",
+        "location": "北京",
+        "activity_level": "low",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "批评技术缺陷"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "理性讨论"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "搜集事实"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_b51e4a5a": {
+      "user_id": "USER_b51e4a5a",
+      "profile": {
+        "user_id": "USER_b51e4a5a",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "51-65",
+        "gender": "male",
+        "occupation": "学生",
+        "education": "本科",
+        "location": "成都",
+        "activity_level": "medium",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "保持观望"
+        ],
+        "sentiment": "消极",
+        "sentiment_value": -1.0,
+        "sentiment_keywords": [
+          "表达不满"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "想了解真相"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_4d0dadae": {
+      "user_id": "USER_4d0dadae",
+      "profile": {
+        "user_id": "USER_4d0dadae",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "26-35",
+        "gender": "female",
+        "occupation": "医生",
+        "education": "博士",
+        "location": "上海",
+        "activity_level": "low",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "批评技术缺陷"
+        ],
+        "sentiment": "积极",
+        "sentiment_value": 1.0,
+        "sentiment_keywords": [
+          "信任品牌"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "需要更多信息"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_c3d081f7": {
+      "user_id": "USER_c3d081f7",
+      "profile": {
+        "user_id": "USER_c3d081f7",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "36-50",
+        "gender": "male",
+        "occupation": "律师",
+        "education": "硕士",
+        "location": "成都",
+        "activity_level": "medium",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "担心安全问题"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "客观分析"
+        ],
+        "intent": "情感表达",
+        "intent_keywords": [
+          "表态"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_26e07425": {
+      "user_id": "USER_26e07425",
+      "profile": {
+        "user_id": "USER_26e07425",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "26-35",
+        "gender": "female",
+        "occupation": "其他",
+        "education": "本科",
+        "location": "西安",
+        "activity_level": "low",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "需要更多信息"
+        ],
+        "sentiment": "中立",
+        "sentiment_value": 0.0,
+        "sentiment_keywords": [
+          "中立陈述"
+        ],
+        "intent": "情感表达",
+        "intent_keywords": [
+          "表达态度"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_c51bed28": {
+      "user_id": "USER_c51bed28",
+      "profile": {
+        "user_id": "USER_c51bed28",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "36-50",
+        "gender": "male",
+        "occupation": "教师",
+        "education": "高中",
+        "location": "北京",
+        "activity_level": "low",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "需要更多信息"
+        ],
+        "sentiment": "积极",
+        "sentiment_value": 1.0,
+        "sentiment_keywords": [
+          "表达信任"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "核实"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_c8f9a660": {
+      "user_id": "USER_c8f9a660",
+      "profile": {
+        "user_id": "USER_c8f9a660",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "36-50",
+        "gender": "female",
+        "occupation": "媒体",
+        "education": "硕士",
+        "location": "西安",
+        "activity_level": "low",
+        "stance": "反对",
+        "stance_value": -1.0,
+        "stance_keywords": [
+          "批评技术缺陷"
+        ],
+        "sentiment": "消极",
+        "sentiment_value": -1.0,
+        "sentiment_keywords": [
+          "讽刺批判"
+        ],
+        "intent": "情感表达",
+        "intent_keywords": [
+          "发泄情绪"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    },
+    "USER_4cade475": {
+      "user_id": "USER_4cade475",
+      "profile": {
+        "user_id": "USER_4cade475",
+        "created_at": "2025-09-04T14:55:13.139653",
+        "age_group": "26-35",
+        "gender": "female",
+        "occupation": "设计师",
+        "education": "硕士",
+        "location": "北京",
+        "activity_level": "medium",
+        "stance": "中立",
+        "stance_value": 0.0,
+        "stance_keywords": [
+          "理性分析"
+        ],
+        "sentiment": "积极",
+        "sentiment_value": 1.0,
+        "sentiment_keywords": [
+          "赞赏公司反馈"
+        ],
+        "intent": "信息验证",
+        "intent_keywords": [
+          "需要更多信息"
+        ]
+      },
+      "interaction_history": [],
+      "activity_score": 0.0,
+      "last_active_round": 0
+    }
+  },
+  "rounds": []
+}
