@@ -5,6 +5,7 @@ __pycache__/
 output*/
 Output/
 Test/
+Doc/
 UserAgent/generated_users/
 Config/
 UserAgent/user_memories/

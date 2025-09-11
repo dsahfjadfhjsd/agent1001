@@ -58,9 +58,7 @@ class ContentDistributor:
         # 为每个帖子检查或生成post_id
         for i, post in enumerate(posts):
             if 'post_id' not in post or not post['post_id']:
-                # 只有在没有post_id或为空时才生成新的
-                # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                # post['post_id'] = f"post_{timestamp}_{i:03d}_{uuid.uuid4().hex[:6]}"
+                # 只有在没有post_id或为空时才生成新的ID
                 post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
                 print(f"   🆔 为帖子生成新ID: {post['post_id']}")
             else:
@@ -75,6 +73,9 @@ class ContentDistributor:
                 'content': post['content'],
                 'platform': post.get('platform', 'unknown'),
                 'title': post.get('title', ''),
+                # 新增：多媒体URL信息
+                'img_urls': post.get('img_urls', ''),
+                'video_urls': post.get('video_urls', ''),
                 'original_metrics': {
                     'likes': post.get('original_likes', 0),
                     'comments': post.get('original_comments', 0)

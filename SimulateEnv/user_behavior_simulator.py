@@ -41,20 +41,28 @@ class UserThinkingResult:
 
 
 @dataclass
+@dataclass
 class SimulationConfig:
     """模拟配置"""
     max_concurrent_requests: int = 5
     request_timeout: int = 60
     model_name: str = "qwen-max"
-    # 暂时未使用
-    max_tokens: int = 500
-    temperature: float = 0.7
     # 备用方案参数
     action_probability: float = 0.7  # 用户采取行动的概率
     comment_probability: float = 0.3  # 在决定行动时选择评论而非点赞的概率
     # 新增：Prompt导出配置
     export_prompts: bool = False  # 是否导出所有prompts到文件
-    prompt_export_dir: str = "Output/prompt_exports"  # prompt导出目录
+    prompt_export_dir: str = None  # prompt导出目录
+    # 新增：多模态分析配置
+    enable_multimodal: bool = False  # 是否启用多模态分析
+    multimodal_model: str = "qwen-vl-max"  # 多模态模型名称
+    multimodal_max_images: int = 5  # 每个帖子最多处理的图片数量
+    multimodal_timeout: int = 60  # 多模态分析超时时间（秒）
+    multimodal_fallback_on_error: bool = True  # URL失效或分析失败时是否回退到原始内容
+    # 新增：多模态缓存配置
+    multimodal_use_cache: bool = True  # 是否使用多模态分析缓存
+    multimodal_cache_dir: str = None  # 多模态缓存目录路径
+    multimodal_cache_filename: str = None  # 多模态缓存文件名（不含扩展名），为None时使用默认名称
 
 
 class UserBehaviorSimulator:
@@ -248,90 +256,6 @@ class UserBehaviorSimulator:
                 return None
 
         return None
-
-    async def simulate_user_behavior(
-        self,
-        user_profile: Dict[str, Any],
-        environment_state: Dict[str, Any],
-        round_number: int = 1
-    ) -> Optional[UserAction]:
-        """
-        模拟单个用户的行为（保持向后兼容性）
-
-        Args:
-            user_profile: 用户画像
-            environment_state: 当前环境状态
-            round_number: 当前轮次
-
-        Returns:
-            用户行为，如果用户不采取行动则返回None
-        """
-        thinking_result = await self.simulate_user_behavior_with_thinking(
-            user_profile, environment_state, round_number
-        )
-
-        if thinking_result and thinking_result.action:
-            return thinking_result.action
-        return None
-
-    async def simulate_multiple_users(
-        self,
-        user_profiles: List[Dict[str, Any]],
-        environment_state: Dict[str, Any],
-        round_number: int = 1
-    ) -> List[UserAction]:
-        """
-        并发模拟多个用户的行为
-
-        Args:
-            user_profiles: 用户画像列表
-            environment_state: 当前环境状态
-            round_number: 当前轮次
-
-        Returns:
-            用户行为列表
-        """
-        tasks = []
-        for user_profile in user_profiles:
-            task = self.simulate_user_behavior(user_profile, environment_state, round_number)
-            tasks.append(task)
-
-        # 使用tqdm显示进度条
-        print(f"🤖 正在模拟 {len(user_profiles)} 个用户的行为...")
-
-        # 包装任务以处理异常
-        async def safe_task(task):
-            try:
-                return await task
-            except Exception as e:
-                return e
-
-        safe_tasks = [safe_task(task) for task in tasks]
-        results = await tqdm.gather(
-            *safe_tasks,
-            desc=f"第{round_number}轮API调用",
-            unit="用户",
-            colour="green"
-        )
-
-        # 过滤出成功的行为
-        actions = []
-        successful_count = 0
-        error_count = 0
-
-        for result in results:
-            if isinstance(result, UserAction):
-                actions.append(result)
-                successful_count += 1
-            elif isinstance(result, Exception):
-                error_count += 1
-                print(f"⚠️  用户行为模拟异常: {result}")
-            else:
-                # None result (用户未采取行动)
-                pass
-
-        print(f"✅ 完成模拟 - 成功: {successful_count}, 错误: {error_count}, 无行动: {len(user_profiles) - successful_count - error_count}")
-        return actions
 
     async def _get_ai_action_with_thinking(
         self,
@@ -616,72 +540,3 @@ class UserBehaviorSimulator:
             content=content if content else None,
             round_number=round_number
         )
-
-    def generate_fallback_action(
-        self,
-        user_id: str,
-        environment_state: Dict[str, Any],
-        round_number: int
-    ) -> Optional[UserAction]:
-        """
-        生成备用行为（当AI调用失败时使用）
-
-        Args:
-            user_id: 用户ID
-            environment_state: 环境状态
-            round_number: 轮次号
-
-        Returns:
-            备用用户行为
-        """
-        post = environment_state['post']
-        comments = environment_state['primary_comments']
-
-        # 随机选择行为类型
-        if random.random() < self.config.comment_probability:
-            # 评论行为
-            if comments and random.random() < 0.5:  # 50%概率回复评论（提高概率）
-                comment = random.choice(comments)
-                return UserAction(
-                    action_id="",
-                    user_id=user_id,
-                    action_type=ActionType.COMMENT_COMMENT,
-                    target_id=comment['comment_id'],
-                    content="同意你的观点！",
-                    round_number=round_number
-                )
-            else:  # 评论帖子
-                fallback_comments = [
-                    "很有意思的内容",
-                    "学到了",
-                    "赞同",
-                    "有道理",
-                    "支持"
-                ]
-                return UserAction(
-                    action_id="",
-                    user_id=user_id,
-                    action_type=ActionType.COMMENT_POST,
-                    target_id=post['post_id'],
-                    content=random.choice(fallback_comments),
-                    round_number=round_number
-                )
-        else:
-            # 点赞行为
-            if comments and random.random() < 0.4:  # 40%概率点赞评论
-                comment = random.choice(comments)
-                return UserAction(
-                    action_id="",
-                    user_id=user_id,
-                    action_type=ActionType.LIKE_COMMENT,
-                    target_id=comment['comment_id'],
-                    round_number=round_number
-                )
-            else:  # 点赞帖子
-                return UserAction(
-                    action_id="",
-                    user_id=user_id,
-                    action_type=ActionType.LIKE_POST,
-                    target_id=post['post_id'],
-                    round_number=round_number
-                )

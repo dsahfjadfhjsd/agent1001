@@ -80,7 +80,7 @@ class TimeSeriesSimulation:
         print(f"📂 加载帖子数据并按时间排序...")
 
         # 读取CSV
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(csv_path, encoding='utf-8', dtype=str)
 
         # 处理时间字段
         df['created_datetime'] = pd.to_datetime(df['created_date'], format='%Y-%m-%d %H:%M')
@@ -115,7 +115,10 @@ class TimeSeriesSimulation:
                 'original_comments': 0,
                 'created_datetime': row['created_datetime'],
                 'stance': row.get('stance', '中立'),
-                'sentiment': row.get('sentiment', '中立')
+                'sentiment': row.get('sentiment', '中立'),
+                # 新增：多媒体URL字段
+                'img_urls': row.get('img_urls', ''),
+                'video_urls': row.get('video_urls', '')
             }
 
             # 优先使用现有的post_id，如果没有则生成新的
@@ -129,6 +132,9 @@ class TimeSeriesSimulation:
             posts.append(post)
 
         self.all_posts = posts
+        # 输出前几个看看
+        # for p in posts[:3]:
+        #     print(f"   示例帖子: {p['post_id']} | {p['created_datetime']} | {p['content'][:30]} | title={p['title']} | platform={p['platform']}")
         self.current_time = self.start_time
 
         print(f"✅ 准备了 {len(posts)} 个帖子用于时间序列模拟")
@@ -382,11 +388,17 @@ class TimeSeriesSimulation:
 
                 print(f"   分配用户: {len(user_profiles)} 个")
 
-                # 创建会话
-                session_post_id = engine.create_session(
+                # 获取多媒体URL信息（如果存在）
+                img_urls = post_data.get('img_urls', '')
+                video_urls = post_data.get('video_urls', '')
+
+                # 创建会话（支持多模态分析）
+                session_post_id = await engine.create_session_with_multimodal(
                     post_content=post_content,
                     post_id=post_id,
-                    batch_id=self.batch_id
+                    batch_id=self.batch_id,
+                    img_urls=img_urls,
+                    video_urls=video_urls
                 )
 
                 # 运行帖子内的多轮交互
@@ -477,6 +489,9 @@ class TimeSeriesSimulation:
                     'content': post['content'],
                     'platform': post.get('platform', 'unknown'),
                     'title': post.get('title', ''),
+                    # 新增：多媒体URL信息
+                    'img_urls': post.get('img_urls', ''),
+                    'video_urls': post.get('video_urls', ''),
                     'original_metrics': {
                         'likes': post.get('original_likes', 0),
                         'comments': post.get('original_comments', 0)
@@ -845,12 +860,24 @@ async def main():
     # 创建时间序列模拟实例
     ts_sim = TimeSeriesSimulation()
 
+    # 配置支持多模态分析的设置
     config = SimulationConfig(
         max_concurrent_requests=10,
-        model_name="qwen3-max-preview",
-        action_probability=0.7,
+        request_timeout=60,
+        model_name="qwen-max",
+        action_probability=0.8,
         comment_probability=0.5,
-        export_prompts=False
+        export_prompts=False,
+        # 启用多模态分析功能
+        enable_multimodal=False,
+        multimodal_model="qwen-vl-max-2025-08-13",
+        multimodal_max_images=8,
+        multimodal_timeout=60,
+        multimodal_fallback_on_error=True,
+        # 启用多模态缓存功能
+        multimodal_use_cache=True,
+        multimodal_cache_dir=None,  # 使用默认缓存目录
+        multimodal_cache_filename=None  # 使用默认缓存文件名
     )
 
     # 运行时间序列模拟
@@ -859,10 +886,10 @@ async def main():
         user_path="demo_users_0907_2.csv",  # 使用已有用户文件
         start_date="2025-03-31 18:00",  # 从2025年3月31日18:00开始
         sample_ratio=0.8,               # 采样比例
-        max_time_steps=5,               # 运行77个时间步
+        max_time_steps=10,               # 运行10个时间步
         time_step_hours=6,              # 每6小时一步
-        posts_per_round=5,              # 每轮5个帖子
-        users_per_post=20,               # 每个帖子20个用户
+        posts_per_round=3,              # 每轮3个帖子（减少以便观察多模态效果）
+        users_per_post=10,               # 每个帖子20个用户
         config=config
     )
 
@@ -871,4 +898,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # 选择运行版本：
+    asyncio.run(main())  # 带多模态分析

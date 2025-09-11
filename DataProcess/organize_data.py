@@ -268,7 +268,7 @@ class DataOrganizer:
             article_file = platform_path / f"{platform}_article.csv"
             if article_file.exists():
                 try:
-                    df_article = pd.read_csv(article_file, encoding='utf-8')
+                    df_article = pd.read_csv(article_file, encoding='utf-8', dtype=str)
                     processed_articles = self.process_article_data(platform, df_article)
                     all_articles.append(processed_articles)
                     logger.info(f"成功处理 {platform} 的 {len(processed_articles)} 条文章数据")
@@ -287,7 +287,7 @@ class DataOrganizer:
             comment_file = platform_path / f"{platform}_comments.csv"
             if comment_file.exists():
                 try:
-                    df_comment = pd.read_csv(comment_file, encoding='utf-8')
+                    df_comment = pd.read_csv(comment_file, encoding='utf-8', dtype=str)
                     processed_comments = self.process_comment_data(platform, df_comment)
                     all_comments.append(processed_comments)
                     logger.info(f"成功处理 {platform} 的 {len(processed_comments)} 条评论数据")

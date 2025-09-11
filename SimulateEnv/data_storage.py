@@ -288,31 +288,49 @@ class DataStorage:
 
         print(f"📝 增量保存 {len(new_actions)} 个新行为到 {actions_path}")
 
-    def load_environment(self, post_id: str) -> Optional['InteractionEnvironment']:
+    def load_environment(self, post_id: str, batch_id: str = None) -> Optional['InteractionEnvironment']:
         """
         从文件加载环境数据
 
         Args:
             post_id: 帖子ID
+            batch_id: 批次ID，如果提供则优先在该批次中查找
 
         Returns:
             交互环境实例，如果不存在则返回None
         """
-        # 首先尝试直接查找
-        session_dir = self.exports_dir / post_id
-        info_path = session_dir / "session_info.json"
+        session_dir = None
+        info_path = None
 
-        # 如果直接查找不到，尝试在所有batch目录中查找
-        if not info_path.exists():
-            for batch_dir in self.exports_dir.iterdir():
-                if batch_dir.is_dir():
-                    potential_path = batch_dir / post_id / "session_info.json"
-                    if potential_path.exists():
-                        session_dir = batch_dir / post_id
-                        info_path = potential_path
-                        break
+        if batch_id:
+            # 如果提供了batch_id，优先在该批次中查找
+            session_dir = self.exports_dir / batch_id / post_id
+            info_path = session_dir / "session_info.json"
+
+            if info_path.exists():
+                # 在指定批次中找到了，直接使用
+                pass
             else:
-                return None
+                # 在指定批次中没找到，回退到全局查找
+                session_dir = None
+                info_path = None
+
+        if not info_path or not info_path.exists():
+            # 全局查找：首先尝试直接查找
+            session_dir = self.exports_dir / post_id
+            info_path = session_dir / "session_info.json"
+
+            # 如果直接查找不到，尝试在所有batch目录中查找
+            if not info_path.exists():
+                for batch_dir in self.exports_dir.iterdir():
+                    if batch_dir.is_dir():
+                        potential_path = batch_dir / post_id / "session_info.json"
+                        if potential_path.exists():
+                            session_dir = batch_dir / post_id
+                            info_path = potential_path
+                            break
+                else:
+                    return None
 
         # 加载环境基本信息
         with open(info_path, 'r', encoding='utf-8') as f:

@@ -25,11 +25,13 @@ try:
     from .interaction_core import InteractionEnvironment, UserAction
     from .data_storage import DataStorage
     from .user_behavior_simulator import UserBehaviorSimulator, SimulationConfig, UserThinkingResult
+    from .multimodal_analyzer import MultimodalAnalyzer
 except ImportError:
     # 如果相对导入失败，使用绝对导入
     from interaction_core import InteractionEnvironment, UserAction
     from data_storage import DataStorage
     from user_behavior_simulator import UserBehaviorSimulator, SimulationConfig, UserThinkingResult
+    from multimodal_analyzer import MultimodalAnalyzer
 
 # 导入用户记忆管理器
 try:
@@ -55,6 +57,18 @@ class SimulationEngine:
         self.storage = DataStorage(storage_dir)
         self.simulator = UserBehaviorSimulator(self.config)
 
+        # 初始化多模态分析器（如果启用）
+        self.multimodal_analyzer = None
+        if self.config.enable_multimodal:
+            self.multimodal_analyzer = MultimodalAnalyzer(
+                model_name=self.config.multimodal_model,
+                max_images=self.config.multimodal_max_images,
+                timeout=self.config.multimodal_timeout,
+                use_cache=self.config.multimodal_use_cache,
+                cache_dir=self.config.multimodal_cache_dir,
+                cache_filename=self.config.multimodal_cache_filename
+            )
+
         # 当前批次ID（用于分离不同模拟）
         self.current_batch_id: Optional[str] = None
 
@@ -75,7 +89,74 @@ class SimulationEngine:
         except:
             pass
 
-    def create_session(self, post_content: str, post_id: str = None, batch_id: str = None) -> str:
+        try:
+            if self.multimodal_analyzer:
+                await self.multimodal_analyzer.close()
+        except:
+            pass
+
+    async def _enhance_post_with_multimodal(self, post_content: str, post_id: str,
+                                            img_urls: str = None, video_urls: str = None) -> str:
+        """
+        使用多模态分析增强帖子内容
+
+        Args:
+            post_content: 原始帖子内容
+            post_id: 帖子ID
+            img_urls: 图片URL字符串
+            video_urls: 视频URL字符串
+
+        Returns:
+            增强后的帖子内容
+        """
+        # 如果没有启用多模态分析，直接返回原内容
+        if not self.config.enable_multimodal or not self.multimodal_analyzer:
+            return post_content
+
+        # 如果没有提供任何媒体URL，直接返回原内容
+        if not img_urls and not video_urls:
+            return post_content
+
+        try:
+            print(f"🖼️ 正在对帖子 {post_id} 进行多模态分析...")
+
+            # 调用多模态分析器
+            result = await self.multimodal_analyzer.analyze_post_media(
+                post_id=post_id,
+                content=post_content,
+                img_urls=img_urls,
+                video_urls=video_urls
+            )
+
+            if result.success and result.analysis:
+                print(f"✅ 多模态分析完成，生成了 {len(result.analysis)} 字符的分析")
+                print(f"   处理URL数: {len(result.urls_processed)}")
+                if result.urls_failed:
+                    print(f"   失败URL数: {len(result.urls_failed)}")
+                return result.enhanced_content
+            else:
+                if result.error_message:
+                    print(f"⚠️ 多模态分析失败: {result.error_message}")
+                else:
+                    print(f"⚠️ 多模态分析无结果")
+
+                # 根据配置决定是否回退
+                if self.config.multimodal_fallback_on_error:
+                    return post_content
+                else:
+                    return result.enhanced_content
+
+        except Exception as e:
+            print(f"❌ 多模态分析异常: {e}")
+
+            # 根据配置决定是否回退
+            if self.config.multimodal_fallback_on_error:
+                return post_content
+            else:
+                raise e
+
+    def create_session(self, post_content: str, post_id: str = None, batch_id: str = None,
+                       img_urls: str = None, video_urls: str = None) -> str:
         """
         创建新的模拟会话（基于post_id），如果会话已存在则加载历史数据
 
@@ -83,6 +164,8 @@ class SimulationEngine:
             post_content: 初始帖子内容
             post_id: 帖子ID，如果不提供则自动生成，将作为主要的标识符
             batch_id: 批次ID，用于多批次模拟的分离（可选）
+            img_urls: 图片URL字符串
+            video_urls: 视频URL字符串
 
         Returns:
             post_id （作为会话标识）
@@ -98,8 +181,8 @@ class SimulationEngine:
         if self.memory_manager is None or previous_batch_id != batch_id:
             self.memory_manager = UserMemoryManager(self.base_memory_dir, batch_id)
 
-        # 尝试加载已存在的会话
-        existing_env = self.storage.load_environment(post_id)
+        # 尝试加载已存在的会话（只在当前批次中查找）
+        existing_env = self.storage.load_environment(post_id, batch_id)
         if existing_env:
             print(f"🔄 加载已存在的会话: {post_id}")
             print(f"   已有轮次: {existing_env.current_round}")
@@ -142,6 +225,96 @@ class SimulationEngine:
 
         return post_id
 
+    async def create_session_with_multimodal(self, post_content: str, post_id: str = None, batch_id: str = None,
+                                             img_urls: str = None, video_urls: str = None) -> str:
+        """
+        创建新的模拟会话（支持多模态分析）
+
+        Args:
+            post_content: 初始帖子内容
+            post_id: 帖子ID，如果不提供则自动生成，将作为主要的标识符
+            batch_id: 批次ID，用于多批次模拟的分离（可选）
+            img_urls: 图片URL字符串
+            video_urls: 视频URL字符串
+
+        Returns:
+            post_id （作为会话标识）
+        """
+        if post_id is None:
+            post_id = f"post_{uuid.uuid4().hex[:6]}"
+
+        # 设置当前batch_id
+        previous_batch_id = self.current_batch_id
+        self.current_batch_id = batch_id
+
+        # 只在第一次或batch_id改变时初始化用户记忆管理器
+        if self.memory_manager is None or previous_batch_id != batch_id:
+            self.memory_manager = UserMemoryManager(self.base_memory_dir, batch_id)
+
+        # 尝试加载已存在的会话（只在当前批次中查找）
+        existing_env = self.storage.load_environment(post_id, batch_id)
+        if existing_env:
+            print(f"🔄 加载已存在的会话: {post_id}")
+            print(f"   已有轮次: {existing_env.current_round}")
+            print(f"   已有行为数: {len(existing_env.actions)}")
+
+            # 检查是否需要多模态增强
+            need_multimodal_enhancement = (
+                self.config.enable_multimodal and
+                self.multimodal_analyzer and
+                (img_urls or video_urls) and
+                "[多媒体内容分析]" not in existing_env.post.content
+            )
+
+            if need_multimodal_enhancement:
+                print(f"🖼️ 检测到已存在会话需要多模态增强...")
+
+                # 对现有内容进行多模态增强
+                enhanced_content = await self._enhance_post_with_multimodal(
+                    existing_env.post.content, post_id, img_urls, video_urls
+                )
+
+                # 更新环境中的帖子内容
+                existing_env.post.content = enhanced_content
+
+                # 保存更新后的环境
+                self.storage.save_incremental_data(existing_env, post_id, batch_id)
+                print(f"✅ 已更新会话的多模态内容")
+
+            # 使用加载的环境（可能已增强）
+            self.current_environment = existing_env
+            self.current_session_id = post_id
+
+            # 显示当前环境状态
+            current_actions = existing_env.actions
+            if current_actions:
+                print(f"   历史交互概况:")
+                action_stats = {}
+                for action in current_actions:
+                    action_type = action.action_type.value
+                    action_stats[action_type] = action_stats.get(action_type, 0) + 1
+                print(f"     行为统计: {action_stats}")
+        else:
+            print(f"创建新会话: {post_id}")
+            print(f"初始帖子: {post_content[:60]}...")
+
+            # 如果启用了多模态分析，先进行内容增强
+            enhanced_content = await self._enhance_post_with_multimodal(
+                post_content, post_id, img_urls, video_urls
+            )
+
+            # 创建新环境（使用增强后的内容）
+            self.current_environment = InteractionEnvironment(enhanced_content, post_id=post_id)
+            self.current_session_id = post_id  # 使用post_id作为session_id
+
+            # 初始化保存时间戳
+            self.storage._session_created_at = datetime.now().isoformat()
+
+            # 保存初始状态（使用post_id作为目录名）
+            self.storage.save_incremental_data(self.current_environment, post_id, batch_id)
+
+        return post_id
+
     def load_session(self, post_id: str) -> bool:
         """
         加载已存在的会话（基于post_id）
@@ -152,7 +325,7 @@ class SimulationEngine:
         Returns:
             是否加载成功
         """
-        environment = self.storage.load_environment(post_id)
+        environment = self.storage.load_environment(post_id, self.current_batch_id)
         if environment:
             self.current_environment = environment
             self.current_session_id = post_id
