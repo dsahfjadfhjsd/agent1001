@@ -406,7 +406,7 @@ class DataOrganizer:
     def run_integration(self, output_path: str = None):
         """运行数据整合流程"""
         if output_path is None:
-            output_path = self.data_root_path / "integrated_data"
+            output_path = self.data_root_path / "XMSU7D" / "integrated_data"
 
         output_path = Path(output_path)
 

@@ -22,14 +22,14 @@ else:
 class UserProfileManager:
     """用户画像管理器"""
 
-    def __init__(self, generator: UserProfileGenerator = None):
+    def __init__(self, generator: UserProfileGenerator = None, config_path: str = "Config/user_profiles.json"):
         """
         初始化管理器
 
         Args:
             generator: 用户画像生成器实例
         """
-        self.generator = generator or UserProfileGenerator()
+        self.generator = generator or UserProfileGenerator(config_path)
         self.users_cache = []  # 缓存加载的用户数据
         self.current_file = None  # 当前加载的文件名
 

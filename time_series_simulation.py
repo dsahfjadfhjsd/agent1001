@@ -736,7 +736,7 @@ class TimeSeriesSimulation:
 
         plot_file = results_dir / "user_stance_sentiment_plot.png"
         plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-        plt.show()
+        plt.close()
 
         print(f"📊 用户立场情感变化图已保存到: {plot_file}")
 
@@ -866,23 +866,23 @@ async def main():
         request_timeout=60,           # 请求超时时间
         model_name="qwen-max",        # 模型名称
         action_probability=0.8,       # 行动概率
-        comment_probability=0.5,      # 评论概率
         export_prompts=False,         # 导出提示
+        prompt_export_dir=f"Output/prompt_exports/timeseries_{ts_sim.batch_id}/",
         # 启用多模态分析功能
         enable_multimodal=False,                        # 启用多模态分析
         multimodal_model="qwen-vl-max-2025-08-13",      # 多模态模型名称
         multimodal_max_images=8,                        # 每个帖子最多处理的图片数量
-        multimodal_timeout=60,                          # 多模态请求超时时间
+        multimodal_timeout=120,                          # 多模态请求超时时间
         multimodal_fallback_on_error=True,              # 多模态请求失败时是否回退
         # 启用多模态缓存功能
         multimodal_use_cache=True,       # 启用多模态缓存功能
-        multimodal_cache_dir=None,       # 使用默认缓存目录
-        multimodal_cache_filename=None   # 使用默认缓存文件名
+        multimodal_cache_dir="Output/multimodal_cache/xmsu7d",
+        multimodal_cache_filename="multimodal_results"
     )
 
     # 运行时间序列模拟
     results = await ts_sim.run_time_series_simulation(
-        csv_path="Data/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
+        csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
         user_path="demo_users_0907_2.csv",                              # 使用已有用户文件
         start_date="2025-03-31 18:00",                                  # 从2025年3月31日18:00开始
         sample_ratio=0.8,                                               # 采样比例
@@ -890,7 +890,7 @@ async def main():
         time_step_hours=6,                                              # 每6小时一步
         posts_per_round=3,                                              # 每轮3个帖子（减少以便观察多模态效果）
         users_per_post=10,                                              # 每个帖子10个用户
-        config=config                                                   # 使用多模态配置
+        config=config                                                   # 配置
     )
 
     print("\n🎉 时间序列模拟完成！")

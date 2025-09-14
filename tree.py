@@ -119,7 +119,7 @@ def main():
         ignore_patterns={
             '__pycache__', '.git', '.vscode', 'node_modules',
             '.DS_Store', '*.pyc', '.pytest_cache',
-            'uv.lock', '.venv'
+            'uv.lock', '.venv', 'Output', 'Test', 'Doc'
         }  # 项目特定的忽略文件
     )
 

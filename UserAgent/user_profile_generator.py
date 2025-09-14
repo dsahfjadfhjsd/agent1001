@@ -118,44 +118,63 @@ class UserProfileGenerator:
         # 立场
         if 'stance_distribution' in behavior_patterns:
             stance_data = behavior_patterns['stance_distribution']
-            stances = ['支持', '中立', '反对']
-            probabilities = stance_data.get('probability', [0.33, 0.33, 0.34])
+            # 动态获取立场类型，排除probability键
+            stances = [key for key in stance_data.keys() if key != 'probability']
+            probabilities = stance_data.get('probability', [1.0/len(stances)] * len(stances))
             stance = random.choices(stances, weights=probabilities)[0]
             behavior_profile['stance'] = stance
 
             # 添加立场量化值 [-1, 1]
-            stance_value_map = {'支持': 1.0, '中立': 0.0, '反对': -1.0}
-            behavior_profile['stance_value'] = stance_value_map[stance]
+            # 通用映射：支持=1.0, 中立/中性=0.0, 反对=-1.0
+            if '支持' in stance or 'support' in stance.lower():
+                stance_value = 1.0
+            elif '中立' in stance or 'neutral' in stance.lower() or '中性' in stance:
+                stance_value = 0.0
+            elif '反对' in stance or 'against' in stance.lower() or 'oppose' in stance.lower():
+                stance_value = -1.0
+            else:
+                stance_value = 0.0  # 默认中立
+            behavior_profile['stance_value'] = stance_value
 
             # 对应关键词中挑选
-            if stance in stance_data:
+            if stance in stance_data and isinstance(stance_data[stance], list):
                 behavior_profile['stance_keywords'] = random.sample(stance_data[stance], k=1)
 
         # 情感倾向
         if 'sentiment_distribution' in behavior_patterns:
             sentiment_data = behavior_patterns['sentiment_distribution']
-            sentiments = ['积极', '中立', '消极']
-            probabilities = sentiment_data.get('probability', [0.33, 0.33, 0.34])
+            # 动态获取情感类型，排除probability键
+            sentiments = [key for key in sentiment_data.keys() if key != 'probability']
+            probabilities = sentiment_data.get('probability', [1.0/len(sentiments)] * len(sentiments))
             sentiment = random.choices(sentiments, weights=probabilities)[0]
             behavior_profile['sentiment'] = sentiment
 
             # 添加情感量化值 [-1, 1]
-            sentiment_value_map = {'积极': 1.0, '中立': 0.0, '消极': -1.0}
-            behavior_profile['sentiment_value'] = sentiment_value_map[sentiment]
+            # 通用映射：积极/正面=1.0, 中立/中性=0.0, 消极/负面=-1.0
+            if '积极' in sentiment or 'positive' in sentiment.lower() or '正面' in sentiment:
+                sentiment_value = 1.0
+            elif '中立' in sentiment or 'neutral' in sentiment.lower() or '中性' in sentiment:
+                sentiment_value = 0.0
+            elif '消极' in sentiment or 'negative' in sentiment.lower() or '负面' in sentiment:
+                sentiment_value = -1.0
+            else:
+                sentiment_value = 0.0  # 默认中立
+            behavior_profile['sentiment_value'] = sentiment_value
 
             # 选择对应的关键词
-            if sentiment in sentiment_data:
+            if sentiment in sentiment_data and isinstance(sentiment_data[sentiment], list):
                 behavior_profile['sentiment_keywords'] = random.sample(sentiment_data[sentiment], k=1)
 
         # 意图
         if 'intent_distribution' in behavior_patterns:
             intent_data = behavior_patterns['intent_distribution']
-            intents = ['信息验证', '情感表达', '利益实践']
-            probabilities = intent_data.get('probability', [0.33, 0.33, 0.34])
+            # 动态获取意图类型，排除probability键
+            intents = [key for key in intent_data.keys() if key != 'probability']
+            probabilities = intent_data.get('probability', [1.0/len(intents)] * len(intents))
             intent = random.choices(intents, weights=probabilities)[0]
             behavior_profile['intent'] = intent
             # 选择对应的关键词
-            if intent in intent_data:
+            if intent in intent_data and isinstance(intent_data[intent], list):
                 behavior_profile['intent_keywords'] = random.sample(intent_data[intent], k=1)
 
         return behavior_profile
@@ -285,19 +304,13 @@ class UserProfileGenerator:
 # 示例使用
 if __name__ == "__main__":
     # 创建生成器
-    generator = UserProfileGenerator()
+    generator = UserProfileGenerator("Config/uspe_user_profiles.json")
 
     print("\n=== 生成多个用户画像 ===")
     # 生成多个用户
-    users = generator.generate_multiple_users(5)
+    users = generator.generate_multiple_users(10000)
     print(f"成功生成 {len(users)} 个用户")
 
     # 保存到CSV
-    filepath = generator.save_users_to_csv(users)
+    filepath = generator.save_users_to_csv(users, "uspe_users_0914.csv")
     print(f"用户画像已保存到: {filepath}")
-
-    # 显示可用属性
-    print("\n=== 可用属性配置 ===")
-    attributes = generator.get_available_attributes()
-    for attr_name, attr_values in attributes.items():
-        print(f"{attr_name}: {attr_values}")

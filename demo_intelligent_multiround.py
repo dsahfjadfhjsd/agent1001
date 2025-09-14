@@ -434,7 +434,6 @@ async def main():
     config = SimulationConfig(
         max_concurrent_requests=4,
         action_probability=0.7,
-        comment_probability=0.5,
         export_prompts=True,
         prompt_export_dir=f"Output/prompt_exports/intel_multi_{simulation.batch_id}"
     )

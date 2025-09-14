@@ -48,8 +48,7 @@ class SimulationConfig:
     request_timeout: int = 60
     model_name: str = "qwen-max"
     # 备用方案参数
-    action_probability: float = 0.7  # 用户采取行动的概率
-    comment_probability: float = 0.3  # 在决定行动时选择评论而非点赞的概率
+    action_probability: float = 1.0  # 用户采取行动的概率
     # 新增：Prompt导出配置
     export_prompts: bool = False  # 是否导出所有prompts到文件
     prompt_export_dir: str = None  # prompt导出目录
@@ -291,6 +290,7 @@ class UserBehaviorSimulator:
 - 行为偏好：优先点赞 > 评论帖子 >= 回复评论
 - 当已有评论时，优先考虑与其他用户互动（回复评论或点赞评论）
 - 评论内容不超过30字，要符合网络用户语境，体现个人观点，避免重复他人内容
+- 评论语言需要结合用户实际以及当前情境考虑选择中文或者英文或是其他语言
 
 可选的行为类型说明：
 - like_post: 点赞帖子，target_id使用帖子ID
@@ -369,9 +369,12 @@ class UserBehaviorSimulator:
         occupation = user_profile.get('occupation', '未知')
         activity_level = user_profile.get('activity_level', '中等')
         stance = user_profile.get('stance', '中立')
+        stance_keywords = user_profile.get('stance_keywords', '无')
         sentiment = user_profile.get('sentiment', '中立')
+        sentiment_keywords = user_profile.get('sentiment_keywords', '无')
         stance_value = user_profile.get('stance_value', 0.0)
         sentiment_value = user_profile.get('sentiment_value', 0.0)
+        intent_keywords = user_profile.get('intent_keywords', '无')
 
         # 提取环境信息
         post = environment_state['post']
@@ -383,8 +386,9 @@ class UserBehaviorSimulator:
 - 性别：{gender}
 - 职业：{occupation}
 - 活跃度：{activity_level}
-- 立场：{stance}（当前值：{stance_value}，-1完全批判小米，1完全支持小米，0中立）
-- 情感倾向：{sentiment}（当前值：{sentiment_value}，-1消极，1积极，0中立）
+- 立场：{stance}:{stance_keywords}（当前值：{stance_value} 支持为1，反对为-1，中立为0）
+- 情感倾向：{sentiment}:{sentiment_keywords}（当前值：{sentiment_value} 积极为1，消极为-1，中立为0）
+- 意图关键词：{intent_keywords}
 
 当前环境：
 帖子内容："{post['content']}"
@@ -433,6 +437,7 @@ class UserBehaviorSimulator:
 2. 结合你的用户画像和历史记忆进行思考
 3. 考虑看到这些内容后立场和情感的可能变化
 4. 决定是否要采取行动以及采取什么行动
+5. 按格式输出同时注意使用的语言（中文/英文/其他）要符合用户画像和当前情境
 """
 
         return prompt

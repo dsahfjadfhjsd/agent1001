@@ -76,11 +76,6 @@ class MultimodalAnalyzer:
             base_url=os.getenv('OPENAI_BASE_URL')
         )
 
-        # 支持的图片格式
-        self.supported_image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
-        # 支持的视频格式（目前大多数多模态模型主要支持图片）
-        self.supported_video_extensions = {'.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm'}
-
     async def close(self):
         """关闭客户端连接"""
         try:
@@ -274,27 +269,6 @@ class MultimodalAnalyzer:
             return all([result.scheme, result.netloc]) and result.scheme in ['http', 'https']
         except:
             return False
-
-    def _is_supported_media(self, url: str) -> bool:
-        """检查URL是否指向支持的媒体格式"""
-        try:
-            parsed_url = urlparse(url.lower())
-            path = parsed_url.path
-
-            # 获取文件扩展名
-            ext = Path(path).suffix.lower()
-
-            # 检查是否为支持的格式
-            return ext in self.supported_image_extensions or ext in self.supported_video_extensions
-
-        except:
-            # 如果无法解析，但看起来像图片/视频URL，也尝试处理
-            url_lower = url.lower()
-            return any(keyword in url_lower for keyword in [
-                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
-                'mp4', 'avi', 'mov', 'webm',
-                'image', 'img', 'video', 'pic'
-            ])
 
     async def _check_url_accessibility(self, url: str) -> bool:
         """

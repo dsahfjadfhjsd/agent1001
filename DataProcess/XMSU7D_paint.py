@@ -20,7 +20,7 @@ plt.rcParams['axes.unicode_minus'] = False
 
 
 class Analyzer:
-    def __init__(self, data_dir="Data/integrated_data", hour_interval=1, start_date=None, end_date=None):
+    def __init__(self, data_dir="Data/XMSU7D/integrated_data", hour_interval=1, start_date=None, end_date=None):
         """初始化情感分析工具"""
         self.data_dir = Path(data_dir)
         self.articles_file = self.data_dir / "XMSU7D_integrated_articles.csv"
@@ -599,8 +599,8 @@ def main(hour_interval=1, start_date=None, end_date=None, simulation_file=None, 
         hourly_data = analyzer.generate_report()
         result_data = hourly_data
 
-    # 显示图表
-    plt.show()
+    # 关闭图表以释放内存
+    plt.close('all')
 
     return result_data
 
