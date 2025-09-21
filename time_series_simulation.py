@@ -875,19 +875,30 @@ async def main():
         multimodal_timeout=120,                          # 多模态请求超时时间
         multimodal_fallback_on_error=True,              # 多模态请求失败时是否回退
         # 启用多模态缓存功能
-        multimodal_use_cache=True,       # 启用多模态缓存功能
+        multimodal_use_cache=False,       # 启用多模态缓存功能
         multimodal_cache_dir="Output/multimodal_cache/xmsu7d",
         multimodal_cache_filename="multimodal_results"
     )
 
     # 运行时间序列模拟
+    # results = await ts_sim.run_time_series_simulation(
+    #     csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
+    #     user_path="demo_users_0907_2.csv",                              # 使用已有用户文件
+    #     start_date="2025-03-31 18:00",                                  # 从2025年3月31日18:00开始
+    #     sample_ratio=0.8,                                               # 采样比例
+    #     max_time_steps=3,                                              # 运行3个时间步
+    #     time_step_hours=6,                                              # 每6小时一步
+    #     posts_per_round=3,                                              # 每轮3个帖子（减少以便观察多模态效果）
+    #     users_per_post=10,                                              # 每个帖子10个用户
+    #     config=config                                                   # 配置
+    # )
     results = await ts_sim.run_time_series_simulation(
-        csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
-        user_path="demo_users_0907_2.csv",                              # 使用已有用户文件
-        start_date="2025-03-31 18:00",                                  # 从2025年3月31日18:00开始
-        sample_ratio=0.8,                                               # 采样比例
-        max_time_steps=10,                                              # 运行10个时间步
-        time_step_hours=6,                                              # 每6小时一步
+        csv_path="Data/USPE2024/integrated_data/USPE2024_unified_articles.csv",  # 使用已有帖子文件
+        user_path="uspe_users_0921.csv",                              # 使用已有用户文件
+        start_date="2024-7-21 00:00",                                  # 从2024年7月21日00:00开始
+        sample_ratio=0.9,                                               # 采样比例
+        max_time_steps=3,                                              # 运行3个时间步
+        time_step_hours=72,                                              # 每72小时一步
         posts_per_round=3,                                              # 每轮3个帖子（减少以便观察多模态效果）
         users_per_post=10,                                              # 每个帖子10个用户
         config=config                                                   # 配置

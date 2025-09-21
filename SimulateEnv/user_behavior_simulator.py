@@ -156,12 +156,12 @@ class UserBehaviorSimulator:
 
         # 写入文件头
         with open(self.prompt_export_file, 'w', encoding='utf-8') as f:
-            f.write(f"=== AI提示词导出文件 ===\n")
-            f.write(f"导出时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"模型: {self.config.model_name}\n")
+            f.write(f"=== AI Prompt Export File ===\n")
+            f.write(f"Export Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Model: {self.config.model_name}\n")
             f.write("=" * 80 + "\n\n")
 
-        print(f"📝 Prompt导出已启用，保存到: {self.prompt_export_file}")
+        print(f"📝 Prompt export enabled, saved to: {self.prompt_export_file}")
 
     def _export_prompt(self, user_id: str, prompt: str, ai_response: str = None):
         """导出单个prompt到文件"""
@@ -173,22 +173,22 @@ class UserBehaviorSimulator:
         try:
             with open(self.prompt_export_file, 'a', encoding='utf-8') as f:
                 f.write(f"📝 Prompt #{self.prompt_counter}\n")
-                f.write(f"👤 用户ID: {user_id}\n")
-                f.write(f"⏰ 时间: {datetime.now().strftime('%H:%M:%S')}\n")
+                f.write(f"👤 User ID: {user_id}\n")
+                f.write(f"⏰ Time: {datetime.now().strftime('%H:%M:%S')}\n")
                 f.write("-" * 50 + "\n")
-                f.write("🤖 输入提示词:\n")
+                f.write("🤖 Input Prompt:\n")
                 f.write(prompt)
                 f.write("\n" + "-" * 50 + "\n")
 
                 if ai_response:
-                    f.write("🎯 AI响应:\n")
+                    f.write("🎯 AI Response:\n")
                     f.write(ai_response)
                     f.write("\n" + "-" * 50 + "\n")
 
                 f.write("\n" + "=" * 80 + "\n\n")
 
         except Exception as e:
-            print(f"导出prompt失败: {e}")
+            print(f"Failed to export prompt: {e}")
 
     def get_prompt_export_path(self) -> str:
         """获取prompt导出文件路径"""
@@ -251,7 +251,7 @@ class UserBehaviorSimulator:
                     return result
 
             except Exception as e:
-                print(f"用户 {user_profile['user_id']} 行为模拟失败: {e}")
+                print(f"User {user_profile['user_id']} behavior simulation failed: {e}")
                 return None
 
         return None
@@ -283,33 +283,33 @@ class UserBehaviorSimulator:
                     messages=[
                         {
                             "role": "system",
-                            "content": """你是一个社交媒体用户行为模拟器。根据用户画像、当前环境和历史记忆，模拟用户的思考过程并决定行为。
+                            "content": """You are a social media user behavior simulator. Based on user profiles, current environment, and historical memory, simulate the user's thinking process and decide on actions.
 
-用户行为决策规则：
-- 根据活跃度：活跃度越低，越可能不采取行动
-- 行为偏好：优先点赞 > 评论帖子 >= 回复评论
-- 当已有评论时，优先考虑与其他用户互动（回复评论或点赞评论）
-- 评论内容不超过30字，要符合网络用户语境，体现个人观点，避免重复他人内容
-- 评论语言需要结合用户实际以及当前情境考虑选择中文或者英文或是其他语言
+User behavior decision rules:
+- Activity level: Lower activity levels make users less likely to take action
+- Behavior preference: Prioritize liking > commenting on posts >= replying to comments
+- When comments exist, prioritize interaction with other users (reply to comments or like comments)
+- Comment content should not exceed 30 words, fit social media context, reflect personal opinions, avoid repeating others' content
+- Comment language should match the post language and user context (English for English posts, Chinese for Chinese posts, etc.)
 
-可选的行为类型说明：
-- like_post: 点赞帖子，target_id使用帖子ID
-- comment_post: 评论帖子，target_id使用帖子ID，需要提供action_content
-- like_comment: 点赞评论，target_id使用评论ID
-- comment_comment: 回复评论，target_id使用要回复的评论ID，需要提供action_content
-- no_action: 不采取任何行动
+Available action types:
+- like_post: Like a post, use post ID as target_id
+- comment_post: Comment on a post, use post ID as target_id, provide action_content
+- like_comment: Like a comment, use comment ID as target_id
+- comment_comment: Reply to a comment, use comment ID as target_id, provide action_content
+- no_action: Take no action
 
-特别提醒：
-即使你不打算采取行动，也请输出no_action，以及你的思考过程等，保持格式完整。
-当存在评论时，可以考虑comment_comment（回复评论）或like_comment（点赞评论），这能促进用户间的互动交流。
+Important reminders:
+Even if you don't intend to take action, please output no_action along with your thinking process to maintain format consistency.
+When comments exist, consider comment_comment (reply to comment) or like_comment (like comment) to promote user interaction.
 
-请严格按照JSON格式回复，包含：
-- thinking_process: 详细的思考过程（100字以内）
-- action_type: 行为类型（like_post/comment_post/like_comment/comment_comment/no_action）
-- action_content: 评论内容（仅当action_type为comment_post或comment_comment时需要）
-- target_id: 目标ID（如果是点赞/评论帖子，使用帖子ID；如果是点赞/回复评论，使用评论ID；必须使用真实ID）
-- stance_after: 看完内容后的立场值（-1到1的数值）
-- sentiment_after: 看完内容后的情感值（-1到1的数值）"""
+Please respond strictly in JSON format, including:
+- thinking_process: Detailed thinking process (within 100 words)
+- action_type: Action type (like_post/comment_post/like_comment/comment_comment/no_action)
+- action_content: Comment content (only required when action_type is comment_post or comment_comment)
+- target_id: Target ID (use post ID for liking/commenting posts; use comment ID for liking/replying comments; must use real IDs)
+- stance_after: Stance value after viewing content (-1 to 1 numeric value)
+- sentiment_after: Sentiment value after viewing content (-1 to 1 numeric value)"""
                         },
                         {"role": "user", "content": prompt}
                     ],
@@ -336,14 +336,14 @@ class UserBehaviorSimulator:
                     decision = json.loads(json_match.group())
                     return decision
                 else:
-                    print(f"无法解析AI响应: {content}")
+                    print(f"Unable to parse AI response: {content}")
                     return None
 
         except asyncio.TimeoutError:
-            print("AI请求超时")
+            print("AI request timeout")
             return None
         except Exception as e:
-            print(f"AI请求失败: {e}")
+            print(f"AI request failed: {e}")
             return None
 
     def _build_thinking_prompt(
@@ -381,21 +381,21 @@ class UserBehaviorSimulator:
         comments = environment_state['primary_comments']
 
         prompt = f"""
-用户画像：
-- 年龄组：{age_group}
-- 性别：{gender}
-- 职业：{occupation}
-- 活跃度：{activity_level}
-- 立场：{stance}:{stance_keywords}（当前值：{stance_value} 支持为1，反对为-1，中立为0）
-- 情感倾向：{sentiment}:{sentiment_keywords}（当前值：{sentiment_value} 积极为1，消极为-1，中立为0）
-- 意图关键词：{intent_keywords}
+User Profile:
+- Age Group: {age_group}
+- Gender: {gender}
+- Occupation: {occupation}
+- Activity Level: {activity_level}
+- Stance: {stance}:{stance_keywords} (Current value: {stance_value}, Support=1, Oppose=-1, Neutral=0)
+- Sentiment Tendency: {sentiment}:{sentiment_keywords} (Current value: {sentiment_value}, Positive=1, Negative=-1, Neutral=0)
+- Intent Keywords: {intent_keywords}
 
-当前环境：
-帖子内容："{post['content']}"
-帖子ID：{post['post_id']}
-帖子点赞数：{post['likes']}
+Current Environment:
+Post Content: "{post['content']}"
+Post ID: {post['post_id']}
+Post Likes: {post['likes']}
 
-已有评论：
+Existing Comments:
 """
 
         if comments:
@@ -407,37 +407,37 @@ class UserBehaviorSimulator:
                 if comment.get('sub_comments'):
                     sub_count = len(comment['sub_comments'])
                     if sub_count > 0:
-                        sub_comment_info = f"（有{sub_count}条回复）"
+                        sub_comment_info = f" ({sub_count} replies)"
 
-                prompt += f"{i}. 评论ID：{comment['comment_id']} 【用户{comment['author_id'][-8:]}】: {comment['content']} "
-                prompt += f"[点赞数: {comment['likes']}] {sub_comment_info}\n"
+                prompt += f"{i}. Comment ID: {comment['comment_id']} [User {comment['author_id'][-8:]}]: {comment['content']} "
+                prompt += f"[Likes: {comment['likes']}]{sub_comment_info}\n"
 
                 # 显示该评论的前2条二级评论
                 if comment.get('sub_comments'):
                     for j, sub_comment in enumerate(comment['sub_comments'][:2], 1):
-                        prompt += f"    └─ 回复{j}：【用户{sub_comment['author_id'][-8:]}】{sub_comment['content']} "
-                        prompt += f"[点赞数: {sub_comment.get('likes', 0)}]\n"
+                        prompt += f"    └─ Reply {j}: [User {sub_comment['author_id'][-8:]}] {sub_comment['content']} "
+                        prompt += f"[Likes: {sub_comment.get('likes', 0)}]\n"
         else:
-            prompt += "暂无评论\n"
+            prompt += "No comments yet\n"
 
         # 添加历史记忆
         if user_memory:
             user_memory = user_memory[-5:]  # 最多只保留最近5次交互
-            prompt += f"\n用户历史记忆（最近{len(user_memory)}次交互）：\n"
+            prompt += f"\nUser Historical Memory (Recent {len(user_memory)} interactions):\n"
             for i, memory in enumerate(user_memory, 1):
-                prompt += f"{i}. 轮次{memory.get('round_number', '?')}：{memory.get('thinking_process', '无记录')[:60]}...\n"
-                prompt += f"   行为：{memory.get('action_taken', '无')} | 立场变化：{memory.get('stance_before', 0):.1f}→{memory.get('stance_after', 0):.1f} | 情感变化：{memory.get('sentiment_before', 0):.1f}→{memory.get('sentiment_after', 0):.1f}\n"
+                prompt += f"{i}. Round {memory.get('round_number', '?')}: {memory.get('thinking_process', 'No record')[:60]}...\n"
+                prompt += f"   Action: {memory.get('action_taken', 'None')} | Stance change: {memory.get('stance_before', 0):.1f}→{memory.get('stance_after', 0):.1f} | Sentiment change: {memory.get('sentiment_before', 0):.1f}→{memory.get('sentiment_after', 0):.1f}\n"
 
         prompt += f"""
 
-请根据用户画像和当前环境，假设你是该用户，判断是否采取行动以及采取什么行动。
+Based on the user profile and current environment, assume you are this user and decide whether to take action and what action to take.
 
-思考步骤：
-1. 仔细阅读帖子内容和已有评论
-2. 结合你的用户画像和历史记忆进行思考
-3. 考虑看到这些内容后立场和情感的可能变化
-4. 决定是否要采取行动以及采取什么行动
-5. 按格式输出同时注意使用的语言（中文/英文/其他）要符合用户画像和当前情境
+Thinking Steps:
+1. Carefully read the post content and existing comments
+2. Think based on your user profile and historical memory
+3. Consider possible changes in stance and sentiment after viewing this content
+4. Decide whether to take action and what action to take
+5. When outputting, pay attention to language choice (Chinese/English/other) that matches the user profile and current context
 """
 
         return prompt
@@ -456,7 +456,7 @@ class UserBehaviorSimulator:
 
         # 添加帖子内容
         post = environment_state['post']
-        content_seen.append(f"帖子：{post['content']}")
+        content_seen.append(f"Post: {post['content']}")
 
         # 添加评论内容
         comments = environment_state['primary_comments']
@@ -464,12 +464,12 @@ class UserBehaviorSimulator:
         selected_comments = self._select_comments_for_display(comments)
 
         for comment in selected_comments:  # 使用智能选择的评论
-            content_seen.append(f"评论：{comment['content']}")
+            content_seen.append(f"Comment: {comment['content']}")
 
             # 添加子评论
             if comment.get('sub_comments'):
                 for sub_comment in comment['sub_comments'][:2]:  # 每个评论最多看2条回复
-                    content_seen.append(f"回复：{sub_comment['content']}")
+                    content_seen.append(f"Reply: {sub_comment['content']}")
 
         return content_seen
 
@@ -508,7 +508,7 @@ class UserBehaviorSimulator:
         }
 
         if action_type_str not in action_type_map:
-            print(f"未知的行为类型: {action_type_str}")
+            print(f"Unknown action type: {action_type_str}")
             return None
 
         action_type = action_type_map[action_type_str]
@@ -524,17 +524,17 @@ class UserBehaviorSimulator:
             # 如果是对帖子的操作
             if action_type_str in ['like_post', 'comment_post']:
                 if target_id != post_id:
-                    print(f"自动修正帖子ID: {target_id} → {post_id}")
+                    print(f"Auto-correcting post ID: {target_id} → {post_id}")
                     target_id = post_id
 
             # 如果是对评论的操作但ID不匹配，使用第一个评论的ID
             elif action_type_str in ['like_comment', 'comment_comment']:
                 if target_id not in comment_ids and comment_ids:
-                    print(f"自动修正评论ID: {target_id} → {comment_ids[0]}")
+                    print(f"Auto-correcting comment ID: {target_id} → {comment_ids[0]}")
                     target_id = comment_ids[0]
 
         if not target_id:
-            print(f"缺少目标ID: {action_decision}")
+            print(f"Missing target ID: {action_decision}")
             return None
 
         return UserAction(

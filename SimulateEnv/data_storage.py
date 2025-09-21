@@ -253,6 +253,8 @@ class DataStorage:
         new_actions = env.actions[env._saved_actions_count:]
 
         if not new_actions:
+            # 即使没有新行为，也要确保_saved_actions_count正确同步
+            env._saved_actions_count = len(env.actions)
             return
 
         actions_data = []
@@ -280,13 +282,50 @@ class DataStorage:
             actions_data.append(action_data)
 
         actions_path = session_dir / "all_actions.csv"
-        # 追加保存新增的行为记录
-        self._save_to_csv(actions_path, actions_data, mode='a')
+
+        # 调试信息：记录保存前的状态
+        file_exists_before = actions_path.exists()
+        print(f"🔍 保存前状态: 文件存在={file_exists_before}, 总行为数={len(env.actions)}, 已保存数={env._saved_actions_count}, 新增数={len(new_actions)}")
+
+        # 检查数据完整性：如果文件不存在但已保存计数>0，说明数据丢失，需要重建
+        if not file_exists_before and env._saved_actions_count > 0:
+            print(f"⚠️ 检测到数据丢失！文件不存在但已有{env._saved_actions_count}个已保存行为")
+            print(f"🔄 重建完整的行为记录文件...")
+            # 保存所有行为，而不只是新增的
+            all_actions_data = []
+            for action in env.actions:
+                action_data = {
+                    'user_id': action.user_id,
+                    'action_type': action.action_type.value,
+                    'target_id': action.target_id,
+                    'content': action.content or '',
+                    'round_number': action.round_number,
+                    'created_at': action.created_at.isoformat(),
+                    'saved_at': datetime.now().isoformat()
+                }
+                # 如果是评论相关行为，添加comment_id
+                if action.action_type in [ActionType.COMMENT_POST, ActionType.COMMENT_COMMENT, ActionType.LIKE_COMMENT]:
+                    if hasattr(action, 'comment_id') and action.comment_id:
+                        action_data['comment_id'] = action.comment_id
+                    else:
+                        action_data['comment_id'] = action.target_id if action.target_id.startswith('comment_') else ''
+                else:
+                    action_data['comment_id'] = ''
+                all_actions_data.append(action_data)
+
+            # 使用覆盖模式保存所有行为
+            self._save_to_csv(actions_path, all_actions_data, mode='w')
+            print(f"✅ 重建完成，保存了{len(all_actions_data)}个行为记录")
+        else:
+            # 正常的增量保存
+            self._save_to_csv(actions_path, actions_data, mode='a')
 
         # 更新已保存的actions数量
+        old_count = env._saved_actions_count
         env._saved_actions_count = len(env.actions)
 
         print(f"📝 增量保存 {len(new_actions)} 个新行为到 {actions_path}")
+        print(f"🔄 更新计数: {old_count} -> {env._saved_actions_count}")
 
     def load_environment(self, post_id: str, batch_id: str = None) -> Optional['InteractionEnvironment']:
         """

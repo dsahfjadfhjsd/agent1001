@@ -312,5 +312,5 @@ if __name__ == "__main__":
     print(f"成功生成 {len(users)} 个用户")
 
     # 保存到CSV
-    filepath = generator.save_users_to_csv(users, "uspe_users_0914.csv")
+    filepath = generator.save_users_to_csv(users, "uspe_users_0921.csv")
     print(f"用户画像已保存到: {filepath}")
