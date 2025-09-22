@@ -87,7 +87,10 @@ class TimeSeriesSimulation:
 
         # 过滤起始时间之前的数据
         self.start_time = pd.to_datetime(start_date)
-        df = df[df['created_datetime'] >= self.start_time]
+        # 修改：为了确保第一个时间步有可用帖子，我们加载开始时间之前的一些帖子
+        # 加载开始时间前1天的帖子，确保第一轮有足够的可用帖子
+        filter_start_time = self.start_time - timedelta(days=1)
+        df = df[df['created_datetime'] >= filter_start_time]
 
         # 按时间排序
         df = df.sort_values('created_datetime')
@@ -105,31 +108,44 @@ class TimeSeriesSimulation:
         # 转换为字典列表
         posts = []
         for _, row in df.iterrows():
+            # 安全地获取字符串字段，确保NaN值被转换为空字符串
+            def safe_get_str(row_data, key, default=''):
+                value = row_data.get(key, default)
+                if pd.isna(value):
+                    return default
+                return str(value)
+
             post = {
-                'content': row['content'],
-                'platform': row.get('platform', 'unknown'),
-                'title': row.get('title', ''),
+                'content': safe_get_str(row, 'content'),
+                'platform': safe_get_str(row, 'platform', 'unknown'),
+                'title': safe_get_str(row, 'title'),
                 # 'original_likes': row.get('like_count', 0),
                 # 'original_comments': row.get('comment_count', 0),
                 'original_likes': 0,
                 'original_comments': 0,
                 'created_datetime': row['created_datetime'],
-                'stance': row.get('stance', '中立'),
-                'sentiment': row.get('sentiment', '中立'),
-                # 新增：多媒体URL字段
-                'img_urls': row.get('img_urls', ''),
-                'video_urls': row.get('video_urls', '')
+                'stance': safe_get_str(row, 'stance', '中立'),
+                'sentiment': safe_get_str(row, 'sentiment', '中立'),
+                # 新增：多媒体URL字段 - 确保NaN值被正确处理
+                'img_urls': safe_get_str(row, 'img_urls'),
+                'video_urls': safe_get_str(row, 'video_urls')
             }
 
             # 优先使用现有的post_id，如果没有则生成新的
-            if pd.notna(row.get('post_id')) and row.get('post_id'):
-                post['post_id'] = row['post_id']
+            post_id_value = row.get('post_id')
+            if pd.notna(post_id_value) and str(post_id_value).strip():
+                post['post_id'] = str(post_id_value).strip()
             else:
                 # 只有在CSV中没有post_id或为空时才生成新的
                 import uuid
                 post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
 
             posts.append(post)
+
+        # 统计空内容帖子数量
+        empty_content_posts = len([p for p in posts if not p['content'].strip()])
+        if empty_content_posts > 0:
+            print(f"   ⚠️ 发现 {empty_content_posts} 个空内容帖子，在模拟时将跳过（除非启用多模态且有媒体）")
 
         self.all_posts = posts
         # 输出前几个看看
@@ -305,7 +321,14 @@ class TimeSeriesSimulation:
                 print(f"   参与用户数: {interaction_count}")
 
             except Exception as e:
+                import traceback
                 print(f"❌ 第 {step + 1} 轮模拟失败: {e}")
+                print(f"🔍 详细错误信息:")
+                print(traceback.format_exc())
+                print(f"🕐 当前时间: {current_time}")
+                print(f"📊 可用帖子数: {len(available_posts)}")
+                if available_posts:
+                    print(f"📝 第一个帖子示例: {available_posts[0].get('post_id', 'N/A')}")
                 continue
 
         # 保存和可视化结果
@@ -378,6 +401,15 @@ class TimeSeriesSimulation:
                 # 获取帖子内容
                 post_data = self.distributor.distribution_plan['posts'][post_id]
                 post_content = post_data['content']
+                
+                # 检查帖子内容是否为空
+                if not post_content or not post_content.strip():
+                    # 如果未启用多模态，跳过空内容帖子
+                    has_media = (post_data.get('img_urls', '').strip() or 
+                                post_data.get('video_urls', '').strip())
+                    if not (config.enable_multimodal and has_media):
+                        print(f"   ⏭️ 跳过空内容帖子 {post_id}（无文本内容且未启用多模态或无媒体）")
+                        continue
 
                 # 获取分配的用户
                 assigned_user_ids = post_dist['assigned_users']
@@ -895,11 +927,11 @@ async def main():
     results = await ts_sim.run_time_series_simulation(
         csv_path="Data/USPE2024/integrated_data/USPE2024_unified_articles.csv",  # 使用已有帖子文件
         user_path="uspe_users_0921.csv",                              # 使用已有用户文件
-        start_date="2024-7-21 00:00",                                  # 从2024年7月21日00:00开始
+        start_date="2024-7-19 00:00",                                  # 从2024年7月19日00:00开始
         sample_ratio=0.9,                                               # 采样比例
-        max_time_steps=3,                                              # 运行3个时间步
+        max_time_steps=37,                                              # 运行37个时间步
         time_step_hours=72,                                              # 每72小时一步
-        posts_per_round=3,                                              # 每轮3个帖子（减少以便观察多模态效果）
+        posts_per_round=20,                                              # 每轮20个帖子（减少以便观察多模态效果）
         users_per_post=10,                                              # 每个帖子10个用户
         config=config                                                   # 配置
     )

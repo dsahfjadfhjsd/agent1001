@@ -824,7 +824,7 @@ if __name__ == "__main__":
     hour_interval = 72  # 默认每72小时统计
 
     # 模拟数据文件路径（如果需要对比分析）
-    simulation_file = None  # 暂时没有USPE2024的模拟数据
+    simulation_file = "Output/timeseries/timeseries_sim_20250921_211827/plot_data_points.csv"
 
     # 是否包含候选人对比分析
     include_candidate_comparison = True  # 设置为True来生成候选人对比图

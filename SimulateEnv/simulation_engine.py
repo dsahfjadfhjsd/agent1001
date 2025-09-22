@@ -211,7 +211,7 @@ class SimulationEngine:
                 #         print(f"       - {comment.user_id}: {preview}")
         else:
             print(f"创建新会话: {post_id}")
-            print(f"初始帖子: {post_content[:60]}...")
+            # print(f"初始帖子: {post_content[:60]}...")
 
             # 创建新环境
             self.current_environment = InteractionEnvironment(post_content, post_id=post_id)
