@@ -41,7 +41,6 @@ class UserThinkingResult:
 
 
 @dataclass
-@dataclass
 class SimulationConfig:
     """模拟配置"""
     max_concurrent_requests: int = 5

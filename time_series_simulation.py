@@ -87,10 +87,11 @@ class TimeSeriesSimulation:
 
         # 过滤起始时间之前的数据
         self.start_time = pd.to_datetime(start_date)
+        df = df[df['created_datetime'] >= self.start_time]
         # 修改：为了确保第一个时间步有可用帖子，我们加载开始时间之前的一些帖子
         # 加载开始时间前1天的帖子，确保第一轮有足够的可用帖子
-        filter_start_time = self.start_time - timedelta(days=1)
-        df = df[df['created_datetime'] >= filter_start_time]
+        # filter_start_time = self.start_time - timedelta(days=1)
+        # df = df[df['created_datetime'] >= filter_start_time]
 
         # 按时间排序
         df = df.sort_values('created_datetime')
@@ -401,12 +402,12 @@ class TimeSeriesSimulation:
                 # 获取帖子内容
                 post_data = self.distributor.distribution_plan['posts'][post_id]
                 post_content = post_data['content']
-                
+
                 # 检查帖子内容是否为空
                 if not post_content or not post_content.strip():
                     # 如果未启用多模态，跳过空内容帖子
-                    has_media = (post_data.get('img_urls', '').strip() or 
-                                post_data.get('video_urls', '').strip())
+                    has_media = (post_data.get('img_urls', '').strip() or
+                                 post_data.get('video_urls', '').strip())
                     if not (config.enable_multimodal and has_media):
                         print(f"   ⏭️ 跳过空内容帖子 {post_id}（无文本内容且未启用多模态或无媒体）")
                         continue
@@ -918,10 +919,10 @@ async def main():
     #     user_path="demo_users_0907_2.csv",                              # 使用已有用户文件
     #     start_date="2025-03-31 18:00",                                  # 从2025年3月31日18:00开始
     #     sample_ratio=0.8,                                               # 采样比例
-    #     max_time_steps=3,                                              # 运行3个时间步
+    #     max_time_steps=77,                                              # 运行77个时间步
     #     time_step_hours=6,                                              # 每6小时一步
-    #     posts_per_round=3,                                              # 每轮3个帖子（减少以便观察多模态效果）
-    #     users_per_post=10,                                              # 每个帖子10个用户
+    #     posts_per_round=5,                                              # 每轮3个帖子（减少以便观察多模态效果）
+    #     users_per_post=20,                                              # 每个帖子10个用户
     #     config=config                                                   # 配置
     # )
     results = await ts_sim.run_time_series_simulation(

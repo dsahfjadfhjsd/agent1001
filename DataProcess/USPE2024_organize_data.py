@@ -13,7 +13,8 @@ import hashlib
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+import numpy as np
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -210,6 +211,79 @@ class USPE2024DataOrganizer:
 
         return result_df
 
+    def generate_realistic_comment_times(self, post_timestamp: str, num_comments: int,
+                                         days_range: tuple = (0, 0)) -> List[str]:
+        """
+        为评论生成符合真实情况的时间分布
+
+        Args:
+            post_timestamp: 帖子发布时间戳
+            num_comments: 需要生成时间的评论数量
+            days_range: 评论分布的天数范围，默认3-5天
+
+        Returns:
+            生成的评论时间戳列表（已排序）
+        """
+        try:
+            # 转换帖子时间戳
+            post_time = datetime.fromtimestamp(int(float(post_timestamp)))
+
+            # 随机选择总天数（3-5天之间）
+            total_days = np.random.uniform(days_range[0], days_range[1])
+
+            # 生成评论时间分布
+            # 使用Beta分布来模拟真实的评论热度衰减
+            # Beta(2, 5) 会产生前期多、后期少的分布
+            # Beta(2, 3) 会产生峰值在前1/3左右的分布
+            # 随机选择分布类型
+            distribution_type = np.random.choice(['early_peak', 'middle_peak', 'gradual_decline', 'uniform'])
+            # distribution_type = np.random.choice(['early_peak', 'middle_peak', 'gradual_decline'], p=[0.6, 0.3, 0.1])
+            # 均匀分布
+            # distribution_type = 'uniform'
+
+            if distribution_type == 'early_peak':
+                # 峰值在最开始，快速衰减
+                beta_params = (2, 5)
+            elif distribution_type == 'middle_peak':
+                # 峰值在中间偏前
+                beta_params = (2, 3)
+            elif distribution_type == 'gradual_decline':
+                # 逐渐衰减
+                beta_params = (1.5, 4)
+            elif distribution_type == 'uniform':
+                # 均匀分布
+                beta_params = (1, 1)
+
+            # 生成归一化的时间点（0-1之间）
+            time_points = np.random.beta(beta_params[0], beta_params[1], num_comments)
+
+            # 映射到实际时间范围（单位：小时）
+            total_hours = total_days * 24
+            hours_offsets = time_points * total_hours
+
+            # 添加一些随机性，使时间更自然
+            # 添加小的随机扰动（±30分钟）
+            random_minutes = np.random.uniform(-30, 30, num_comments)
+
+            # 生成评论时间戳
+            comment_times = []
+            for hours, minutes in zip(hours_offsets, random_minutes):
+                total_offset = timedelta(hours=hours, minutes=minutes)
+                comment_time = post_time + total_offset
+                # 转换为时间戳
+                comment_timestamp = str(int(comment_time.timestamp()))
+                comment_times.append(comment_timestamp)
+
+            # 排序时间戳
+            comment_times.sort()
+
+            return comment_times
+
+        except Exception as e:
+            logger.warning(f"生成评论时间失败: {e}，将使用帖子原始时间")
+            # 如果生成失败，返回帖子时间的列表
+            return [post_timestamp] * num_comments
+
     def process_comment_data(self, file_path: Path, platform: str, articles_df: pd.DataFrame = None) -> pd.DataFrame:
         """处理评论数据"""
         logger.info(f"处理评论数据: {file_path}")
@@ -228,11 +302,46 @@ class USPE2024DataOrganizer:
                     'created_date': article_row['created_date']
                 }
 
+        # 首先按article_id分组，统计每个帖子有多少评论没有时间
+        comments_without_time = {}
+        # 检查是否存在created_time字段
+        has_created_time = 'created_time' in df.columns
+
+        for article_id, group in df.groupby('article_id'):
+            article_id_str = str(article_id)
+
+            # 找出没有时间的评论
+            if has_created_time:
+                no_time_mask = group['created_time'].isna() | (group['created_time'] == '') | (group['created_time'] == '0')
+                num_no_time = no_time_mask.sum()
+            else:
+                # 如果没有created_time字段，所有评论都需要生成时间
+                num_no_time = len(group)
+
+            if num_no_time > 0 and article_id_str in article_time_mapping:
+                # 获取帖子时间
+                post_timestamp = article_time_mapping[article_id_str]['created_time']
+
+                # 生成符合真实分布的评论时间
+                generated_times = self.generate_realistic_comment_times(
+                    post_timestamp,
+                    num_no_time
+                )
+
+                # 存储生成的时间
+                comments_without_time[article_id_str] = {
+                    'times': generated_times,
+                    'index': 0  # 用于追踪已分配的时间索引
+                }
+
+                logger.info(f"为帖子 {article_id_str} 的 {num_no_time} 条评论生成了分布式时间")
+
         processed_data = []
 
         for _, row in df.iterrows():
             original_article_id = str(self.safe_get_field(row, 'article_id'))
-            created_time = self.safe_get_field(row, 'created_time')
+            # 只有当字段存在时才获取created_time
+            created_time = self.safe_get_field(row, 'created_time') if has_created_time else ''
 
             # 查找对应的post_id，如果没有找到则生成一个
             post_id = self.article_id_mapping.get(original_article_id)
@@ -240,16 +349,34 @@ class USPE2024DataOrganizer:
                 post_id = self.generate_post_id(platform, original_article_id)
                 self.article_id_mapping[original_article_id] = post_id
 
-            # 如果评论没有时间，使用对应帖子的时间
+            # 如果评论没有时间，使用预先生成的分布式时间
             if not created_time or created_time == '' or pd.isna(created_time):
-                if original_article_id in article_time_mapping:
+                if original_article_id in comments_without_time:
+                    # 获取下一个分配的时间
+                    time_data = comments_without_time[original_article_id]
+                    idx = time_data['index']
+                    if idx < len(time_data['times']):
+                        created_time = time_data['times'][idx]
+                        created_date = self.convert_timestamp_to_date(created_time)
+                        time_data['index'] += 1  # 移动到下一个时间
+                        logger.debug(f"评论 {self.safe_get_field(row, 'comment_id')} 使用分布式时间: {created_date}")
+                    else:
+                        # 理论上不应该到这里，但作为保险
+                        if original_article_id in article_time_mapping:
+                            created_time = article_time_mapping[original_article_id]['created_time']
+                            created_date = article_time_mapping[original_article_id]['created_date']
+                        else:
+                            created_time = ''
+                            created_date = ''
+                elif original_article_id in article_time_mapping:
+                    # 如果没有在预生成列表中（理论上不应该发生），回退到使用帖子时间
                     created_time = article_time_mapping[original_article_id]['created_time']
                     created_date = article_time_mapping[original_article_id]['created_date']
-                    logger.debug(f"评论 {self.safe_get_field(row, 'comment_id')} 使用帖子 {original_article_id} 的时间: {created_date}")
+                    logger.warning(f"评论 {self.safe_get_field(row, 'comment_id')} 未在预生成列表中，使用帖子时间")
                 else:
                     created_time = ''
                     created_date = ''
-                    logger.warning(f"评论 {self.safe_get_field(row, 'comment_id')} 找不到对应帖子的时间，article_id: {original_article_id}")
+                    # logger.warning(f"评论 {self.safe_get_field(row, 'comment_id')} 找不到对应帖子的时间，article_id: {original_article_id}")
             else:
                 created_date = self.convert_timestamp_to_date(created_time)
 
@@ -485,13 +612,13 @@ class USPE2024DataOrganizer:
 
         # 保存文章数据
         if not articles_df.empty:
-            articles_file = output_folder / "USPE2024_unified_articles.csv"
+            articles_file = output_folder / "USPE2024_unified_articles2.csv"
             articles_df.to_csv(articles_file, index=False, encoding='utf-8-sig')
             logger.info(f"统一文章数据已保存到: {articles_file}")
 
         # 保存评论数据
         if not comments_df.empty:
-            comments_file = output_folder / "USPE2024_unified_comments.csv"
+            comments_file = output_folder / "USPE2024_unified_comments2.csv"
             comments_df.to_csv(comments_file, index=False, encoding='utf-8-sig')
             logger.info(f"统一评论数据已保存到: {comments_file}")
 
@@ -531,7 +658,7 @@ class USPE2024DataOrganizer:
             }
         }
 
-        report_file = output_folder / "USPE2024_unified_data_report.json"
+        report_file = output_folder / "USPE2024_unified_data_report2.json"
         with open(report_file, 'w', encoding='utf-8') as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
 

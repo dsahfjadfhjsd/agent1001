@@ -22,12 +22,14 @@ plt.rcParams['axes.unicode_minus'] = False
 
 
 class USPE2024UnifiedAnalyzer:
-    def __init__(self, data_dir="Data/USPE2024/integrated_data", hour_interval=24):
+    def __init__(self,
+                 article_file="Data/USPE2024/integrated_data/USPE2024_unified_articles2.csv", 
+                 comment_file="Data/USPE2024/integrated_data/USPE2024_unified_comments2.csv", 
+                 hour_interval=24):
         """初始化USPE2024统一数据集分析工具"""
-        self.data_dir = Path(data_dir)
         # 使用统一数据集文件
-        self.articles_file = self.data_dir / "USPE2024_unified_articles.csv"
-        self.comments_file = self.data_dir / "USPE2024_unified_comments.csv"
+        self.articles_file = article_file
+        self.comments_file = comment_file
         self.output_dir = Path("Data/visualizations")
         self.output_dir.mkdir(exist_ok=True)
 
@@ -788,7 +790,7 @@ class USPE2024UnifiedAnalyzer:
         return None, real_data, sim_data
 
 
-def main(hour_interval=24, start_date=None, end_date=None, simulation_file=None, photo_name="USPE2024_comparison_real_vs_simulation.png", include_candidate_comparison=False):
+def main(hour_interval=24, article_file=None, comment_file=None, simulation_file=None, photo_name="USPE2024_comparison_real_vs_simulation.png", include_candidate_comparison=False):
     """主函数 - 模仿XMSU7D的main函数结构"""
     # 创建分析工具
     analyzer = USPE2024UnifiedAnalyzer(hour_interval=hour_interval)
@@ -821,10 +823,11 @@ def main(hour_interval=24, start_date=None, end_date=None, simulation_file=None,
 
 if __name__ == "__main__":
     # 可以通过修改这个参数来设置时间间隔
-    hour_interval = 72  # 默认每72小时统计
+    hour_interval = 72  # 默认每24小时统计
 
     # 模拟数据文件路径（如果需要对比分析）
     simulation_file = "Output/timeseries/timeseries_sim_20250921_211827/plot_data_points.csv"
+    # simulation_file = None  # 设置为None表示不进行对比分析
 
     # 是否包含候选人对比分析
     include_candidate_comparison = True  # 设置为True来生成候选人对比图
@@ -835,7 +838,7 @@ if __name__ == "__main__":
     if simulation_file and Path(simulation_file).exists():
         print("📊 发现模拟数据文件，将进行对比分析")
         result_data = main(hour_interval=hour_interval, simulation_file=simulation_file,
-                           photo_name="USPE2024_comparison_real_vs_simulation.png",
+                           photo_name="USPE2024_comparison_real_vs_simulation_10_06.png",
                            include_candidate_comparison=include_candidate_comparison)
     else:
         print("📊 进行USPE2024统一数据集常规分析")
