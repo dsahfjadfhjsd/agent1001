@@ -471,7 +471,7 @@ def combine_csv_files(
             continue
 
         try:
-            df = pd.read_csv(file_path)
+            df = pd.read_csv(file_path, dtype=str, encoding='utf-8-sig')  # 统一读取为字符串类型
             logger.info(f"读取文件 {i}/{len(input_files)}: {file_path} ({len(df)} 行, {len(df.columns)} 列)")
 
             # 收集列名集合
@@ -570,6 +570,63 @@ def combine_csv_files(
     return merged_df
 
 
+def change_column_values(input_file: str, output_file: str, column: str, value_map: Dict[str, str]):
+    """
+    修改CSV文件中指定列的值
+
+    Args:
+        input_file: 输入CSV文件路径
+        output_file: 输出CSV文件路径
+        column: 要修改的列名
+        value_map: 值映射字典 {old_value: new_value}
+
+    Example:
+        change_column_values(
+            'input.csv',
+            'output.csv',
+            'stance',
+            {
+                '支持小米': '支持',
+                '中立观望': '中立',
+                '质疑批评': '批判'
+            }
+        )
+    """
+    logger.info("="*60)
+    logger.info(f"开始修改列值: {column}")
+    logger.info(f"输入文件: {input_file}")
+    logger.info(f"输出文件: {output_file}")
+    logger.info(f"值映射: {value_map}")
+    logger.info("="*60)
+
+    input_path = Path(input_file)
+    if not input_path.exists():
+        logger.error(f"输入文件不存在: {input_file}")
+        return
+
+    try:
+        df = pd.read_csv(input_file, dtype=str, encoding='utf-8-sig')  # 统一读取为字符串类型
+        logger.info(f"读取文件: {input_file} ({len(df)} 行, {len(df.columns)} 列)")
+
+        if column not in df.columns:
+            logger.error(f"列 '{column}' 在文件中不存在")
+            return
+
+        # 替换值
+        df[column] = df[column].map(value_map).fillna(df[column])
+
+        # 保存到输出文件
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        df.to_csv(output_file, index=False, encoding='utf-8-sig')
+        logger.info(f"已保存修改后的文件到: {output_file}")
+        logger.info("="*60)
+
+    except Exception as e:
+        logger.error(f"处理文件失败: {e}")
+
+
 async def main():
     """主函数示例"""
     # 配置示例
@@ -619,7 +676,7 @@ if __name__ == "__main__":
         # 合并CSV文件模式
         input_files = [
             "Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",
-            "Data/XMSU7D/generated/generated_articles_100.csv"
+            "Data/XMSU7D/generated/generated_articles_100_.csv"
         ]
         output_file = "Data/XMSU7D/generated/generated_articles_combined.csv"
 
@@ -640,6 +697,22 @@ if __name__ == "__main__":
         elif sys.argv[2] == "intersection":
             # 交集模式
             combine_csv_files(input_files, output_file, column_mode='intersection', keep_column_order=True)
+
+
+    elif len(sys.argv) > 1 and sys.argv[1] == "change":
+        # 修改列值模式
+        input_file = "Data/XMSU7D/generated/generated_articles_combined.csv"
+        output_file = "Data/XMSU7D/generated/generated_articles_combined_fixed.csv"
+        column = "stance"
+        value_map = {
+            "支持小米": "支持",
+            "中立观望": "中立",
+            "质疑批评": "批判"
+        }
+        if not Path(input_file).exists():
+            logger.error(f"输入文件不存在，无法修改列值: {input_file}")
+        else:
+            change_column_values(input_file, output_file, column, value_map)
 
     else:
         # 默认生成模式
