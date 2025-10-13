@@ -717,31 +717,3 @@ if __name__ == "__main__":
     else:
         # 默认生成模式
         asyncio.run(main())
-
-    # 给Data/XMSU7D/generated/generated_articles_100.csv添加post_id, title等列
-    # csv = pd.read_csv("Data/XMSU7D/generated/generated_articles_100.csv")
-    # fixed_columns = ['post_id', 'title', 'content', 'created_date', 'platform',
-    #                      'like_count', 'comment_count', 'share_count',
-    #                      'uid', 'username', 'video_urls', 'img_urls']
-
-    # # 没有的列添加固定值
-    # for col in fixed_columns:
-    #     if col not in csv.columns:
-    #         if col == 'post_id':
-    #             csv[col] = ['post_' + uuid.uuid4().hex[:6] for _ in range(len(csv))]
-    #         elif col == 'title':
-    #             csv[col] = ''
-    #         elif col == 'created_date':
-    #             csv[col] = '2025-03-31 20:00'
-    #         elif col == 'platform':
-    #             csv[col] = '生成'
-    #         elif col in ['like_count', 'comment_count', 'share_count']:
-    #             csv[col] = 0
-    #         elif col in ['uid', 'video_urls', 'img_urls']:
-    #             csv[col] = ''
-    #         elif col == 'username':
-    #             csv[col] = 'qwen3-max'
-
-    # # 调整列顺序
-    # csv = csv[fixed_columns + [col for col in csv.columns if col not in fixed_columns]]
-    # csv.to_csv("Data/XMSU7D/generated/generated_articles_100_.csv", index=False, encoding='utf-8-sig')
