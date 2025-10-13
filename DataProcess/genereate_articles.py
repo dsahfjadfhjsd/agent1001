@@ -471,7 +471,7 @@ def combine_csv_files(
             continue
 
         try:
-            df = pd.read_csv(file_path)
+            df = pd.read_csv(file_path, dtype=str, encoding='utf-8-sig')  # 统一读取为字符串类型
             logger.info(f"读取文件 {i}/{len(input_files)}: {file_path} ({len(df)} 行, {len(df.columns)} 列)")
 
             # 收集列名集合
@@ -619,7 +619,7 @@ if __name__ == "__main__":
         # 合并CSV文件模式
         input_files = [
             "Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",
-            "Data/XMSU7D/generated/generated_articles_100.csv"
+            "Data/XMSU7D/generated/generated_articles_100_.csv"
         ]
         output_file = "Data/XMSU7D/generated/generated_articles_combined.csv"
 
