@@ -904,36 +904,51 @@ async def main():
         # 启用多模态分析功能
         enable_multimodal=False,                        # 启用多模态分析
         multimodal_model="qwen-vl-max-2025-08-13",      # 多模态模型名称
-        multimodal_max_images=8,                        # 每个帖子最多处理的图片数量
+        multimodal_max_images=5,                        # 每个帖子最多处理的图片数量
         multimodal_timeout=120,                          # 多模态请求超时时间
         multimodal_fallback_on_error=True,              # 多模态请求失败时是否回退
         # 启用多模态缓存功能
         multimodal_use_cache=False,       # 启用多模态缓存功能
-        multimodal_cache_dir="Output/multimodal_cache/xmsu7d",
+        multimodal_cache_dir="Output/multimodal_cache/ew",
         multimodal_cache_filename="multimodal_results"
     )
 
     # 运行时间序列模拟
     # results = await ts_sim.run_time_series_simulation(
-    #     csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
+    #     # csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
+    #     csv_path="Data/XMSU7D/generated/generated_articles_combined_fixed.csv",  # 使用已有多模态帖子文件
     #     user_path="demo_users_0907_2.csv",                              # 使用已有用户文件
-    #     start_date="2025-03-31 18:00",                                  # 从2025年3月31日18:00开始
+    #     start_date="2025-03-29 18:00",                                  # 从2025年3月29日18:00开始
     #     sample_ratio=0.8,                                               # 采样比例
-    #     max_time_steps=77,                                              # 运行77个时间步
+    #     max_time_steps=3,                                               # 运行3个时间步
     #     time_step_hours=6,                                              # 每6小时一步
-    #     posts_per_round=5,                                              # 每轮3个帖子（减少以便观察多模态效果）
-    #     users_per_post=20,                                              # 每个帖子10个用户
+    #     posts_per_round=5,                                              # 每轮帖子数量（减少以便观察多模态效果）
+    #     users_per_post=10,                                              # 每个帖子用户数量
+    #     config=config                                                   # 配置
+    # )
+    # results = await ts_sim.run_time_series_simulation(
+    #     csv_path="Data/USPE2024/integrated_data/USPE2024_unified_articles.csv",  # 使用已有帖子文件
+    #     user_path="uspe_users_0921.csv",                              # 使用已有用户文件
+    #     start_date="2024-7-19 00:00",                                  # 从2024年7月19日00:00开始
+    #     sample_ratio=0.9,                                               # 采样比例
+    #     max_time_steps=37,                                              # 运行37个时间步
+    #     time_step_hours=72,                                              # 每72小时一步
+    #     posts_per_round=20,                                              # 每轮20个帖子（减少以便观察多模态效果）
+    #     users_per_post=10,                                              # 每个帖子10个用户
     #     config=config                                                   # 配置
     # )
     results = await ts_sim.run_time_series_simulation(
-        csv_path="Data/USPE2024/integrated_data/USPE2024_unified_articles.csv",  # 使用已有帖子文件
-        user_path="uspe_users_0921.csv",                              # 使用已有用户文件
-        start_date="2024-7-19 00:00",                                  # 从2024年7月19日00:00开始
-        sample_ratio=0.9,                                               # 采样比例
-        max_time_steps=37,                                              # 运行37个时间步
-        time_step_hours=72,                                              # 每72小时一步
-        posts_per_round=20,                                              # 每轮20个帖子（减少以便观察多模态效果）
-        users_per_post=10,                                              # 每个帖子10个用户
+        # csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
+        # csv_path="Data/XMSU7D/generated/generated_articles_combined_fixed.csv",  # 使用已有多模态帖子文件
+        # csv_path="Data/EW/generated/generated_articles_combined.csv",  # 使用新增多模态帖子文件
+        csv_path="Data/EW/generated/generated_articles_100_against2.csv",  # 使用新增多模态帖子文件（修正版）
+        user_path="ew_users_1018.csv",                              # 使用已有用户文件
+        start_date="2025-01-18 18:00",                                  # 从2025年1月18日18:00开始
+        sample_ratio=1.0,                                               # 采样比例
+        max_time_steps=10,                                              # 运行10个时间步
+        time_step_hours=720,                                            # 每360小时一步
+        posts_per_round=10,                                              # 每轮帖子数量（减少以便观察多模态效果）
+        users_per_post=20,                                              # 每个帖子用户数量
         config=config                                                   # 配置
     )
 

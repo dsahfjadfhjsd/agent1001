@@ -104,8 +104,12 @@ class ArticleGenerator:
         # 创建信号量控制并发
         self.semaphore = asyncio.Semaphore(self.config.max_concurrent_requests)
 
-        # 加载参考帖子
-        self.reference_articles = self._load_reference_articles()
+        # 加载参考帖子（返回 post_id 到内容的映射）
+        self.reference_articles_dict, self.reference_post_ids = self._load_reference_articles()
+
+        # 参考文章使用计数器（使用 post_id 作为键，避免重复选取）
+        self.reference_usage_count = {post_id: 0 for post_id in self.reference_post_ids}
+        self.reference_rotation_threshold = max(3, len(self.reference_post_ids) // 10)  # 轮换阈值
 
         # 设置创建时间
         if self.config.created_date is None:
@@ -114,28 +118,60 @@ class ArticleGenerator:
         # 提取所有分类维度
         self.class_names = list(self.article_config['Options'].keys())
 
-        logger.info(f"初始化完成: 分类维度={self.class_names}, 参考帖子数={len(self.reference_articles)}")
+        logger.info(f"初始化完成: 分类维度={self.class_names}, 参考帖子数={len(self.reference_post_ids)}")
 
-    def _load_reference_articles(self) -> List[str]:
-        """加载参考帖子"""
+    def _load_reference_articles(self) -> Tuple[Dict[str, str], List[str]]:
+        """
+        加载参考帖子
+
+        Returns:
+            Tuple[Dict[str, str], List[str]]: 
+                - 字典: {post_id: "title\ncontent"}
+                - 列表: [post_id1, post_id2, ...]
+        """
         if not self.config.reference_csv or not Path(self.config.reference_csv).exists():
             logger.warning("未提供参考帖子CSV或文件不存在")
-            return []
+            return {}, []
 
         try:
             df = pd.read_csv(self.config.reference_csv)
-            # title
-            titles = df['title'].dropna().tolist()
-            # 假设参考帖子在'content'列
-            articles = df['content'].dropna().tolist()
-            # 合并标题和内容
-            articles = [f"{title}\n{content}" for title, content in zip(titles, articles)]
-            random.shuffle(articles)  # 打乱顺序
-            logger.info(f"成功加载 {len(articles)} 条参考帖子")
-            return articles
+
+            # 检查必要的列
+            if 'post_id' not in df.columns:
+                logger.error("参考CSV文件缺少 'post_id' 列")
+                return {}, []
+
+            # 提取标题和内容
+            articles_dict = {}
+            post_ids = []
+
+            for _, row in df.iterrows():
+                post_id = str(row['post_id'])
+                title = str(row.get('title', '')).strip() if pd.notna(row.get('title')) else ''
+                content = str(row.get('content', '')).strip() if pd.notna(row.get('content')) else ''
+
+                # 跳过空内容
+                if not content:
+                    continue
+
+                # 合并标题和内容
+                if title:
+                    article_text = f"{title}\n{content}"
+                else:
+                    article_text = content
+
+                articles_dict[post_id] = article_text
+                post_ids.append(post_id)
+
+            # 打乱顺序
+            random.shuffle(post_ids)
+
+            logger.info(f"成功加载 {len(post_ids)} 条参考帖子")
+            return articles_dict, post_ids
+
         except Exception as e:
             logger.error(f"加载参考帖子失败: {e}")
-            return []
+            return {}, []
 
     def _sample_options(self) -> Dict[str, str]:
         """
@@ -157,12 +193,57 @@ class ArticleGenerator:
         return selected_options
 
     def _get_reference_samples(self) -> List[str]:
-        """获取参考帖子样本"""
-        if not self.reference_articles:
+        """
+        获取参考帖子样本（智能轮换策略，使用 post_id 索引）
+
+        策略：
+        1. 优先选择使用次数最少的参考文章
+        2. 当所有文章使用次数接近时，重置计数器
+        3. 确保参考文章的多样性
+        """
+        if not self.reference_post_ids:
             return []
 
-        sample_size = min(self.config.reference_sample_size, len(self.reference_articles))
-        return random.sample(self.reference_articles, sample_size)
+        sample_size = min(self.config.reference_sample_size, len(self.reference_post_ids))
+
+        # 如果参考文章数量很少，直接返回所有文章
+        if len(self.reference_post_ids) <= sample_size:
+            return [self.reference_articles_dict[post_id] for post_id in self.reference_post_ids]
+
+        # 策略：加权随机采样（使用次数越少，权重越高）
+        max_count = max(self.reference_usage_count.values()) if self.reference_usage_count else 1
+        weights = []
+
+        for post_id in self.reference_post_ids:
+            # 使用次数越多，权重越低
+            # 使用 (max_count + 1 - count) 确保即使是最常用的也有被选中的机会
+            weight = (max_count + 1 - self.reference_usage_count[post_id]) ** 2  # 平方增加差异
+            weights.append(weight)
+
+        # 根据权重进行采样
+        try:
+            selected_post_ids = random.choices(self.reference_post_ids, weights=weights, k=sample_size)
+        except Exception:
+            # 如果权重采样失败，回退到普通随机采样
+            selected_post_ids = random.sample(self.reference_post_ids, sample_size)
+
+        # 更新使用计数
+        for post_id in selected_post_ids:
+            self.reference_usage_count[post_id] += 1
+
+        # 检查是否需要重置计数器（当最少使用次数达到阈值时）
+        min_count = min(self.reference_usage_count.values())
+        if min_count >= self.reference_rotation_threshold:
+            # 重置所有计数器，但保持相对差异
+            min_val = min(self.reference_usage_count.values())
+            for post_id in self.reference_usage_count:
+                self.reference_usage_count[post_id] = self.reference_usage_count[post_id] - min_val
+            logger.debug(f"已重置参考文章使用计数器 (阈值: {self.reference_rotation_threshold})")
+
+        # 返回选中的参考文章内容
+        selected_articles = [self.reference_articles_dict[post_id] for post_id in selected_post_ids]
+
+        return selected_articles
 
     def _build_generation_prompt(self, selected_options: Dict[str, str],
                                  reference_samples: List[str]) -> str:
@@ -229,7 +310,9 @@ class ArticleGenerator:
                         messages=[
                             {
                                 "role": "system",
-                                "content": "你是一个专业的社交媒体内容生成助手，擅长根据要求生成真实自然的帖子内容。"
+                                "content": """你是一个专业的社交媒体内容生成助手，擅长根据要求生成真实自然的帖子内容。
+                                可以模仿参考帖子的风格和结构，但要生成新的内容。
+                                自行考虑你的视角是什么样的用户会发布这样的内容，并据此调整语言风格和表达方式。"""
                             },
                             {"role": "user", "content": prompt}
                         ],
@@ -385,7 +468,84 @@ class ArticleGenerator:
         logger.info("="*60)
         logger.info(f"生成完成！总共生成 {total_generated} 篇帖子")
         logger.info(f"保存位置: {self.config.output_file}")
+
+        # 打印参考文章使用统计
+        if self.reference_post_ids:
+            self._print_reference_usage_stats()
+
         logger.info("="*60)
+
+    def _print_reference_usage_stats(self):
+        """打印参考文章使用统计"""
+        if not self.reference_usage_count:
+            return
+
+        logger.info("\n参考文章使用统计:")
+        logger.info("-" * 50)
+
+        # 计算统计信息
+        usage_values = list(self.reference_usage_count.values())
+        total_usage = sum(usage_values)
+        avg_usage = total_usage / len(usage_values) if usage_values else 0
+        max_usage = max(usage_values) if usage_values else 0
+        min_usage = min(usage_values) if usage_values else 0
+
+        logger.info(f"总参考文章数: {len(self.reference_post_ids)}")
+        logger.info(f"总使用次数: {total_usage}")
+        logger.info(f"平均使用次数: {avg_usage:.2f}")
+        logger.info(f"最多使用次数: {max_usage}")
+        logger.info(f"最少使用次数: {min_usage}")
+
+        # 显示使用分布
+        usage_distribution = {}
+        for count in usage_values:
+            usage_distribution[count] = usage_distribution.get(count, 0) + 1
+
+        logger.info("\n使用次数分布:")
+        for count in sorted(usage_distribution.keys()):
+            num_articles = usage_distribution[count]
+            percentage = (num_articles / len(self.reference_post_ids)) * 100
+            bar = "█" * int(percentage / 5)  # 每5%一个方块
+            logger.info(f"  使用{count}次: {num_articles}篇 ({percentage:.1f}%) {bar}")
+
+        # 显示使用次数最多和最少的文章 post_id（前5个）
+        sorted_usage = sorted(self.reference_usage_count.items(), key=lambda x: x[1], reverse=True)
+
+        logger.info("\n使用最多的文章 (Top 5):")
+        for post_id, count in sorted_usage[:5]:
+            logger.info(f"  {post_id}: {count}次")
+
+        logger.info("\n使用最少的文章 (Bottom 5):")
+        for post_id, count in sorted_usage[-5:]:
+            logger.info(f"  {post_id}: {count}次")
+
+        logger.info("-" * 50)
+
+    def get_reference_usage_stats(self) -> Dict[str, Any]:
+        """
+        获取参考文章使用统计（供外部调用）
+
+        Returns:
+            包含统计信息的字典
+        """
+        if not self.reference_usage_count:
+            return {}
+
+        usage_values = list(self.reference_usage_count.values())
+        total_usage = sum(usage_values)
+
+        return {
+            'total_references': len(self.reference_post_ids),
+            'total_usage': total_usage,
+            'average_usage': total_usage / len(usage_values) if usage_values else 0,
+            'max_usage': max(usage_values) if usage_values else 0,
+            'min_usage': min(usage_values) if usage_values else 0,
+            'usage_distribution': {
+                count: sum(1 for v in usage_values if v == count)
+                for count in set(usage_values)
+            },
+            'usage_by_post_id': self.reference_usage_count.copy()
+        }
 
     async def close(self):
         """关闭客户端连接"""
@@ -631,15 +791,31 @@ async def main():
     """主函数示例"""
     # 配置示例
     article_config = {
-        "description": "小米SU7高速车祸事件，涉及智能驾驶、电池安全、车门设计等多个争议点",
+        "description": """现在我们关注社会事件——俄乌战争相关讨论。请根据以下分类标准生成帖子内容：
+
+立场分类标准：切记立场针对俄罗斯而言，分为：支持俄罗斯的立场，批判俄罗斯的立场，中立的立场
+支持：支持俄罗斯立场、认为北约东扩是威胁根源、相信俄方正当性、反对美国霸权主义、支持多极化世界、理解俄方安全诉求、认可俄罗斯历史权益、支持保护俄语居民等；
+中立：保持中立观望、客观描述事件、理性分析局势、关注本国利益、等待事态发展、战争没有赢家、复杂的历史问题、客观看待双方等；
+反对：反对俄罗斯行动、支持乌克兰主权、批评军事入侵、强调国际法、谴责战争暴力、同情乌克兰人民、质疑俄方理由、支持西方制裁等。
+
+情感分类标准：
+积极：赞扬军事实力、相信正义必胜、支持外交努力、期待和平解决、认可反霸行动、赞赏理性声音、表达支持信心、希望早日结束等；
+中立：客观分析局势、理性讨论影响、平衡看待双方、关注事实真相、探讨历史根源、评估地缘政治、分析战争走向、讨论国际关系等；
+消极：谴责战争行为、批评军事行动、担忧全球影响、愤怒于平民伤亡、焦虑能源危机、质疑大国博弈、忧虑核风险、不满媒体宣传、哀悼战争受害者等。
+
+意图分类标准：
+信息验证：核实各方信息、寻求多元视角、辨别真假新闻、了解完整背景、追问事实真相、质疑单一叙事、要求证据支持、对比不同来源等；
+情感表达：表达政治立场、发表个人观点、表达情感态度、分享感受看法、支持某一方、批评相关方、呼吁和平、反思战争等；
+利益实践：推动舆论引导、参与阵营论战、传播特定叙事、反驳对立观点、揭露虚假信息、强化立场认同、呼吁采取行动、监督国际行为等。
+""",
         "Options": {
             "stance": {
-                "subclass": ["支持小米", "中立观望", "质疑批评"],
-                "probability": [0.45, 0.3, 0.25]
+                "subclass": ["支持", "中立", "反对"],
+                "probability": [0.9, 0.1, 0.0]
             },
             "sentiment": {
                 "subclass": ["积极", "中立", "消极"],
-                "probability": [0.35, 0.3, 0.35]
+                "probability": [0.45, 0.2, 0.35]
             },
             "intent": {
                 "subclass": ["信息验证", "情感表达", "利益实践"],
@@ -653,10 +829,10 @@ async def main():
         max_concurrent_requests=10,
         total_articles=100,  # 生成100篇作为测试
         batch_size=20,  # 每20篇保存一次
-        output_file="Data/XMSU7D/generated/generated_articles_100.csv",
-        created_date="2025-03-29 20:00",
+        output_file="Data/EW/generated/generated_articles_100_favor.csv",
+        created_date="2025-02-19 20:00",
         platform="生成",
-        reference_csv="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",
+        reference_csv="Data/EW/all_articles_all.csv",
         reference_sample_size=2
     )
 
@@ -675,10 +851,10 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "combine":
         # 合并CSV文件模式
         input_files = [
-            "Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",
-            "Data/XMSU7D/generated/generated_articles_100_.csv"
+            "Data/EW/all_articles_all.csv",
+            "Data/EW/generated/generated_articles_100_against2.csv",
         ]
-        output_file = "Data/XMSU7D/generated/generated_articles_combined.csv"
+        output_file = "Data/EW/generated/generated_articles_combined_against.csv"
 
         if not all(Path(f).exists() for f in input_files):
             logger.error("某些输入文件不存在，无法合并")
@@ -697,7 +873,6 @@ if __name__ == "__main__":
         elif sys.argv[2] == "intersection":
             # 交集模式
             combine_csv_files(input_files, output_file, column_mode='intersection', keep_column_order=True)
-
 
     elif len(sys.argv) > 1 and sys.argv[1] == "change":
         # 修改列值模式

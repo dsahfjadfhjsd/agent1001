@@ -61,8 +61,8 @@ class ContentDistributor:
                 # 只有在没有post_id或为空时才生成新的ID
                 post['post_id'] = f"post_{uuid.uuid4().hex[:6]}"
                 print(f"   🆔 为帖子生成新ID: {post['post_id']}")
-            else:
-                print(f"   ✅ 使用现有post_id: {post['post_id']}")
+            # else:
+            #     print(f"   ✅ 使用现有post_id: {post['post_id']}")
 
         # 初始化分发计划
         self.distribution_plan = {
