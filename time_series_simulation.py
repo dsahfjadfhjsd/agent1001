@@ -303,7 +303,8 @@ class TimeSeriesSimulation:
                 actual_user_ids = self._get_actual_active_users_from_results(round_result)
                 print(f"📊 调试信息: 第{step + 1}轮, 计划用户数={len(planned_user_ids)}, 实际用户数={len(actual_user_ids)}")
                 print(f"   实际用户ID: {actual_user_ids[:5]}..." if len(actual_user_ids) > 5 else f"   实际用户ID: {actual_user_ids}")
-                sim_stance, sim_sentiment, interaction_count = self._collect_simulation_data_by_users(actual_user_ids)
+                sim_stance, sim_sentiment, interaction_count, stance_change, sentiment_change = self._collect_simulation_data_by_users(
+                    actual_user_ids)
 
                 # 记录数据（不再记录真实帖子的立场情感，只记录用户的）
                 self.time_points.append(current_time)
@@ -311,14 +312,16 @@ class TimeSeriesSimulation:
                     'time': current_time,
                     'sim_stance': sim_stance,
                     'sim_sentiment': sim_sentiment,
+                    'stance_change': stance_change,
+                    'sentiment_change': sentiment_change,
                     'interaction_count': interaction_count,
                     'available_posts': len(available_posts),
                     'active_users': actual_user_ids
                 })
 
                 print(f"📈 模拟结果:")
-                print(f"   模拟立场均值: {sim_stance:.3f}")
-                print(f"   模拟情感均值: {sim_sentiment:.3f}")
+                print(f"   模拟立场均值: {sim_stance:.3f} (本轮改变: {stance_change:+.3f})")
+                print(f"   模拟情感均值: {sim_sentiment:.3f} (本轮改变: {sentiment_change:+.3f})")
                 print(f"   参与用户数: {interaction_count}")
 
             except Exception as e:
@@ -439,7 +442,7 @@ class TimeSeriesSimulation:
                 for inner_round in range(1, rounds_per_post + 1):
                     print(f"   🔄 内部轮次 {inner_round}/{rounds_per_post}")
 
-                    inner_actions = await engine.simulate_round_with_thinking(user_profiles)
+                    inner_actions, avg_sentiment_change, avg_stance_change = await engine.simulate_round_with_thinking(user_profiles)
                     if inner_actions:
                         post_actions.extend(inner_actions)
 
@@ -625,7 +628,7 @@ class TimeSeriesSimulation:
 
         return list(active_users)
 
-    def _collect_simulation_data_by_users(self, active_user_ids: List[str]) -> Tuple[float, float, int]:
+    def _collect_simulation_data_by_users(self, active_user_ids: List[str]) -> Tuple[float, float, int, float, float]:
         """
         基于指定用户ID列表收集立场和情感数据
 
@@ -633,10 +636,10 @@ class TimeSeriesSimulation:
             active_user_ids: 参与用户ID列表
 
         Returns:
-            (平均立场, 平均情感, 参与用户数)
+            (平均立场, 平均情感, 参与用户数, 平均立场改变量, 平均情感改变量)
         """
         if not active_user_ids:
-            return 0.0, 0.0, 0
+            return 0.0, 0.0, 0, 0.0, 0.0
 
         # 获取用户记忆管理器
         try:
@@ -644,11 +647,13 @@ class TimeSeriesSimulation:
             memory_manager = UserMemoryManager(memory_dir="UserAgent/user_memories", batch_id=self.batch_id)
         except Exception as e:
             print(f"⚠️ 无法创建记忆管理器: {e}")
-            return 0.0, 0.0, 0
+            return 0.0, 0.0, 0, 0.0, 0.0
 
         # 收集指定用户的当前立场和情感
         stance_values = []
         sentiment_values = []
+        stance_changes = []
+        sentiment_changes = []
         valid_users = 0
 
         print(f"🔍 正在收集 {len(active_user_ids)} 个用户的立场情感数据...")
@@ -663,6 +668,21 @@ class TimeSeriesSimulation:
 
                     stance_values.append(current_stance)
                     sentiment_values.append(current_sentiment)
+
+                    # 计算改变量：如果有至少一次交互历史，计算最后一次的改变量
+                    if user_memory.interaction_history and len(user_memory.interaction_history) > 0:
+                        last_interaction = user_memory.interaction_history[-1]
+                        # UserThinking 是 dataclass，使用属性访问而不是 .get()
+                        stance_change = last_interaction.stance_after - last_interaction.stance_before
+                        sentiment_change = last_interaction.sentiment_after - last_interaction.sentiment_before
+
+                        stance_changes.append(stance_change)
+                        sentiment_changes.append(sentiment_change)
+                    else:
+                        # 没有交互历史，改变量为0
+                        stance_changes.append(0.0)
+                        sentiment_changes.append(0.0)
+
                     valid_users += 1
 
                     # print(f"   用户 {user_id}: 立场={current_stance:.3f}, 情感={current_sentiment:.3f}")
@@ -673,10 +693,14 @@ class TimeSeriesSimulation:
 
         avg_stance = np.mean(stance_values) if stance_values else 0.0
         avg_sentiment = np.mean(sentiment_values) if sentiment_values else 0.0
+        avg_stance_change = np.mean(stance_changes) if stance_changes else 0.0
+        avg_sentiment_change = np.mean(sentiment_changes) if sentiment_changes else 0.0
 
-        print(f"✅ 数据收集完成: {valid_users} 个有效用户, 平均立场={avg_stance:.3f}, 平均情感={avg_sentiment:.3f}")
+        print(f"✅ 数据收集完成: {valid_users} 个有效用户")
+        print(f"   平均立场={avg_stance:.3f} (改变量={avg_stance_change:+.3f})")
+        print(f"   平均情感={avg_sentiment:.3f} (改变量={avg_sentiment_change:+.3f})")
 
-        return avg_stance, avg_sentiment, valid_users
+        return avg_stance, avg_sentiment, valid_users, avg_stance_change, avg_sentiment_change
 
     def _save_results(self):
         """保存结果到文件"""
@@ -705,10 +729,12 @@ class TimeSeriesSimulation:
         times = [item['time'] for item in self.stance_history]
         sim_stance = [item['sim_stance'] for item in self.stance_history]
         sim_sentiment = [item['sim_sentiment'] for item in self.stance_history]
+        stance_changes = [item.get('stance_change', 0.0) for item in self.stance_history]
+        sentiment_changes = [item.get('sentiment_change', 0.0) for item in self.stance_history]
         interaction_counts = [item['interaction_count'] for item in self.stance_history]
 
         # 保存绘图数据点到CSV文件
-        self._save_plot_data(times, sim_stance, sim_sentiment, interaction_counts)
+        self._save_plot_data(times, sim_stance, sim_sentiment, interaction_counts, stance_changes, sentiment_changes)
 
         # 创建图表
         fig, axes = plt.subplots(2, 2, figsize=(15, 10))
@@ -773,11 +799,18 @@ class TimeSeriesSimulation:
 
         print(f"📊 用户立场情感变化图已保存到: {plot_file}")
 
+        # 绘制改变量分析图
+        self._plot_change_over_time()
+
+        # 绘制综合分析图
+        self._plot_combined_view()
+
         # 打印统计信息
         self._print_user_statistics()
 
     def _save_plot_data(self, times: List[datetime], sim_stance: List[float],
-                        sim_sentiment: List[float], interaction_counts: List[int]):
+                        sim_sentiment: List[float], interaction_counts: List[int],
+                        stance_changes: List[float], sentiment_changes: List[float]):
         """
         保存绘图数据点到CSV文件
 
@@ -786,6 +819,8 @@ class TimeSeriesSimulation:
             sim_stance: 立场数值列表
             sim_sentiment: 情感数值列表
             interaction_counts: 参与用户数列表
+            stance_changes: 立场改变量列表
+            sentiment_changes: 情感改变量列表
         """
         results_dir = Path(f"Output/timeseries/{self.batch_id}")
         results_dir.mkdir(parents=True, exist_ok=True)
@@ -798,6 +833,8 @@ class TimeSeriesSimulation:
                 'datetime': time_point.strftime('%Y-%m-%d %H:%M:%S'),
                 'user_stance': sim_stance[i],
                 'user_sentiment': sim_sentiment[i],
+                'stance_change': stance_changes[i],
+                'sentiment_change': sentiment_changes[i],
                 'participant_count': interaction_counts[i],
                 'batch_id': self.batch_id
             })
@@ -819,9 +856,13 @@ class TimeSeriesSimulation:
                 'stance_avg': float(np.mean(sim_stance)) if sim_stance else 0.0,
                 'stance_min': float(min(sim_stance)) if sim_stance else 0.0,
                 'stance_max': float(max(sim_stance)) if sim_stance else 0.0,
+                'stance_change_avg': float(np.mean(stance_changes)) if stance_changes else 0.0,
+                'stance_change_total': float(sum(stance_changes)) if stance_changes else 0.0,
                 'sentiment_avg': float(np.mean(sim_sentiment)) if sim_sentiment else 0.0,
                 'sentiment_min': float(min(sim_sentiment)) if sim_sentiment else 0.0,
                 'sentiment_max': float(max(sim_sentiment)) if sim_sentiment else 0.0,
+                'sentiment_change_avg': float(np.mean(sentiment_changes)) if sentiment_changes else 0.0,
+                'sentiment_change_total': float(sum(sentiment_changes)) if sentiment_changes else 0.0,
                 'participant_avg': float(np.mean(interaction_counts)) if interaction_counts else 0.0,
                 'participant_total': sum(interaction_counts)
             }
@@ -832,6 +873,179 @@ class TimeSeriesSimulation:
             json.dump(detailed_data, f, indent=2, ensure_ascii=False)
 
         print(f"📊 详细绘图数据已保存到: {plot_data_json}")
+
+    def _plot_change_over_time(self):
+        """绘制改变量随时间变化图"""
+        if not self.stance_history:
+            print("⚠️ 没有数据可供绘制改变量图")
+            return
+
+        # 提取数据
+        times = [item['time'] for item in self.stance_history]
+        stance_changes = [item.get('stance_change', 0.0) for item in self.stance_history]
+        sentiment_changes = [item.get('sentiment_change', 0.0) for item in self.stance_history]
+
+        # 创建图表
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10))
+        fig.suptitle('用户立场与情感改变量分析', fontsize=16, fontweight='bold')
+
+        # === 子图1: 立场改变量 ===
+        ax1.plot(times, stance_changes,
+                 marker='o', linewidth=2.5, markersize=8,
+                 color='#E74C3C', label='立场改变量',
+                 alpha=0.8)
+
+        # 添加零线
+        ax1.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5)
+
+        # 填充正负区域
+        ax1.fill_between(times, stance_changes, 0,
+                         where=[x >= 0 for x in stance_changes],
+                         alpha=0.2, color='green', label='正向改变')
+        ax1.fill_between(times, stance_changes, 0,
+                         where=[x < 0 for x in stance_changes],
+                         alpha=0.2, color='red', label='负向改变')
+
+        ax1.set_ylabel('立场改变量', fontsize=12, fontweight='bold')
+        ax1.set_title('立场改变量随时间变化 (负值=更反对, 正值=更支持)', fontsize=13)
+        ax1.legend(loc='best', fontsize=10)
+        ax1.grid(True, alpha=0.3, linestyle='--')
+
+        # 显示数值标签
+        for i, (time, change) in enumerate(zip(times, stance_changes)):
+            ax1.text(time, change, f'{change:+.3f}',
+                     ha='center', va='bottom' if change >= 0 else 'top',
+                     fontsize=9, alpha=0.7)
+
+        # === 子图2: 情感改变量 ===
+        ax2.plot(times, sentiment_changes,
+                 marker='s', linewidth=2.5, markersize=8,
+                 color='#3498DB', label='情感改变量',
+                 alpha=0.8)
+
+        # 添加零线
+        ax2.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5)
+
+        # 填充正负区域
+        ax2.fill_between(times, sentiment_changes, 0,
+                         where=[x >= 0 for x in sentiment_changes],
+                         alpha=0.2, color='green', label='正向改变')
+        ax2.fill_between(times, sentiment_changes, 0,
+                         where=[x < 0 for x in sentiment_changes],
+                         alpha=0.2, color='red', label='负向改变')
+
+        ax2.set_xlabel('时间', fontsize=12, fontweight='bold')
+        ax2.set_ylabel('情感改变量', fontsize=12, fontweight='bold')
+        ax2.set_title('情感改变量随时间变化 (负值=更消极, 正值=更积极)', fontsize=13)
+        ax2.legend(loc='best', fontsize=10)
+        ax2.grid(True, alpha=0.3, linestyle='--')
+
+        # 显示数值标签
+        for i, (time, change) in enumerate(zip(times, sentiment_changes)):
+            ax2.text(time, change, f'{change:+.3f}',
+                     ha='center', va='bottom' if change >= 0 else 'top',
+                     fontsize=9, alpha=0.7)
+
+        # 格式化时间轴
+        for ax in [ax1, ax2]:
+            ax.tick_params(axis='x', rotation=45)
+
+        plt.tight_layout()
+
+        # 保存图片
+        results_dir = Path(f"Output/timeseries/{self.batch_id}")
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        output_file = results_dir / "change_over_time.png"
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        plt.close()
+
+    def _plot_combined_view(self):
+        """绘制综合视图：立场/情感值 + 改变量"""
+        if not self.stance_history:
+            print("⚠️ 没有数据可供绘制综合分析图")
+            return
+
+        # 提取数据
+        times = [item['time'] for item in self.stance_history]
+        stance_values = [item['sim_stance'] for item in self.stance_history]
+        sentiment_values = [item['sim_sentiment'] for item in self.stance_history]
+        stance_changes = [item.get('stance_change', 0.0) for item in self.stance_history]
+        sentiment_changes = [item.get('sentiment_change', 0.0) for item in self.stance_history]
+
+        # 创建2x2子图
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+        fig.suptitle('用户认知动态全景分析', fontsize=18, fontweight='bold')
+
+        # === 左上: 立场值 ===
+        ax1 = axes[0, 0]
+        ax1.plot(times, stance_values,
+                 marker='o', linewidth=2.5, markersize=8,
+                 color='#E74C3C', label='立场值')
+        ax1.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5)
+        ax1.set_ylabel('立场值', fontsize=11, fontweight='bold')
+        ax1.set_title('立场值变化 (-1=强烈反对, +1=强烈支持)', fontsize=12)
+        ax1.legend(loc='best')
+        ax1.grid(True, alpha=0.3)
+        ax1.set_ylim(-1.1, 1.1)
+
+        # === 右上: 立场改变量 ===
+        ax2 = axes[0, 1]
+        ax2.bar(times, stance_changes, color=['green' if x >= 0 else 'red' for x in stance_changes], alpha=0.6)
+        ax2.axhline(y=0, color='black', linewidth=1.5)
+        ax2.set_ylabel('立场改变量', fontsize=11, fontweight='bold')
+        ax2.set_title('每轮立场改变量', fontsize=12)
+        ax2.grid(True, alpha=0.3, axis='y')
+
+        # 添加数值标签
+        for i, (time, change) in enumerate(zip(times, stance_changes)):
+            ax2.text(time, change, f'{change:+.3f}',
+                     ha='center', va='bottom' if change >= 0 else 'top',
+                     fontsize=8, alpha=0.7)
+
+        # === 左下: 情感值 ===
+        ax3 = axes[1, 0]
+        ax3.plot(times, sentiment_values,
+                 marker='s', linewidth=2.5, markersize=8,
+                 color='#3498DB', label='情感值')
+        ax3.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5)
+        ax3.set_xlabel('时间', fontsize=11, fontweight='bold')
+        ax3.set_ylabel('情感值', fontsize=11, fontweight='bold')
+        ax3.set_title('情感值变化 (-1=极消极, +1=极积极)', fontsize=12)
+        ax3.legend(loc='best')
+        ax3.grid(True, alpha=0.3)
+        ax3.set_ylim(-1.1, 1.1)
+
+        # === 右下: 情感改变量 ===
+        ax4 = axes[1, 1]
+        ax4.bar(times, sentiment_changes, color=['green' if x >= 0 else 'red' for x in sentiment_changes], alpha=0.6)
+        ax4.axhline(y=0, color='black', linewidth=1.5)
+        ax4.set_xlabel('时间', fontsize=11, fontweight='bold')
+        ax4.set_ylabel('情感改变量', fontsize=11, fontweight='bold')
+        ax4.set_title('每轮情感改变量', fontsize=12)
+        ax4.grid(True, alpha=0.3, axis='y')
+
+        # 添加数值标签
+        for i, (time, change) in enumerate(zip(times, sentiment_changes)):
+            ax4.text(time, change, f'{change:+.3f}',
+                     ha='center', va='bottom' if change >= 0 else 'top',
+                     fontsize=8, alpha=0.7)
+
+        # 调整布局
+        for ax in axes.flat:
+            ax.tick_params(axis='x', rotation=45)
+
+        plt.tight_layout()
+
+        # 保存图片
+        results_dir = Path(f"Output/timeseries/{self.batch_id}")
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        output_file = results_dir / "combined_analysis.png"
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        print(f"📊 综合分析图已保存到: {output_file}")
 
     def _print_user_statistics(self):
         """打印用户统计信息"""
@@ -893,6 +1107,7 @@ async def main():
     # 创建时间序列模拟实例
     ts_sim = TimeSeriesSimulation()
 
+    # ============ 方法1: 直接配置事件描述 ============
     # 配置支持多模态分析的设置
     config = SimulationConfig(
         max_concurrent_requests=10,   # 最大并发请求数
@@ -901,6 +1116,9 @@ async def main():
         action_probability=0.8,       # 行动概率
         export_prompts=False,         # 导出提示
         prompt_export_dir=f"Output/prompt_exports/timeseries_{ts_sim.batch_id}/",
+        # 事件描述配置（根据不同事件修改这里即可）
+        event_description=None,
+        stance_context=None,
         # 启用多模态分析功能
         enable_multimodal=False,                        # 启用多模态分析
         multimodal_model="qwen-vl-max-2025-08-13",      # 多模态模型名称
@@ -914,18 +1132,18 @@ async def main():
     )
 
     # 运行时间序列模拟
-    # results = await ts_sim.run_time_series_simulation(
-    #     # csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
-    #     csv_path="Data/XMSU7D/generated/generated_articles_combined_fixed.csv",  # 使用已有多模态帖子文件
-    #     user_path="demo_users_0907_2.csv",                              # 使用已有用户文件
-    #     start_date="2025-03-29 18:00",                                  # 从2025年3月29日18:00开始
-    #     sample_ratio=0.8,                                               # 采样比例
-    #     max_time_steps=3,                                               # 运行3个时间步
-    #     time_step_hours=6,                                              # 每6小时一步
-    #     posts_per_round=5,                                              # 每轮帖子数量（减少以便观察多模态效果）
-    #     users_per_post=10,                                              # 每个帖子用户数量
-    #     config=config                                                   # 配置
-    # )
+    results = await ts_sim.run_time_series_simulation(
+        csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
+        # csv_path="Data/XMSU7D/generated/generated_articles_combined_fixed.csv",
+        user_path="demo_users_0907_2.csv",                              # 使用已有用户文件
+        start_date="2025-03-31 18:00",                                  # 从2025年3月31日18:00开始
+        sample_ratio=0.9,                                               # 采样比例
+        max_time_steps=77,                                               # 运行77个时间步
+        time_step_hours=6,                                              # 每6小时一步
+        posts_per_round=5,                                              # 每轮帖子数量（减少以便观察多模态效果）
+        users_per_post=20,                                              # 每个帖子用户数量
+        config=config                                                   # 配置
+    )
     # results = await ts_sim.run_time_series_simulation(
     #     csv_path="Data/USPE2024/integrated_data/USPE2024_unified_articles.csv",  # 使用已有帖子文件
     #     user_path="uspe_users_0921.csv",                              # 使用已有用户文件
@@ -937,20 +1155,20 @@ async def main():
     #     users_per_post=10,                                              # 每个帖子10个用户
     #     config=config                                                   # 配置
     # )
-    results = await ts_sim.run_time_series_simulation(
-        # csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
-        # csv_path="Data/XMSU7D/generated/generated_articles_combined_fixed.csv",  # 使用已有多模态帖子文件
-        # csv_path="Data/EW/generated/generated_articles_combined.csv",  # 使用新增多模态帖子文件
-        csv_path="Data/EW/generated/generated_articles_100_against2.csv",  # 使用新增多模态帖子文件（修正版）
-        user_path="ew_users_1018.csv",                              # 使用已有用户文件
-        start_date="2025-01-18 18:00",                                  # 从2025年1月18日18:00开始
-        sample_ratio=1.0,                                               # 采样比例
-        max_time_steps=10,                                              # 运行10个时间步
-        time_step_hours=720,                                            # 每360小时一步
-        posts_per_round=10,                                              # 每轮帖子数量（减少以便观察多模态效果）
-        users_per_post=20,                                              # 每个帖子用户数量
-        config=config                                                   # 配置
-    )
+    # results = await ts_sim.run_time_series_simulation(
+    #     # csv_path="Data/XMSU7D/integrated_data/XMSU7D_integrated_articles.csv",  # 使用已有帖子文件
+    #     # csv_path="Data/XMSU7D/generated/generated_articles_combined_fixed.csv",  # 使用已有多模态帖子文件
+    #     # csv_path="Data/EW/generated/generated_articles_combined.csv",  # 使用新增多模态帖子文件
+    #     csv_path="Data/EW/generated/generated_articles_combined.csv",  # 使用新增多模态帖子文件（修正版）
+    #     user_path="ew_users_1018_2.csv",                              # 使用已有用户文件
+    #     start_date="2025-01-18 18:00",                                  # 从2025年1月18日18:00开始
+    #     sample_ratio=1.0,                                               # 采样比例
+    #     max_time_steps=20,                                              # 运行10个时间步
+    #     time_step_hours=360,                                            # 每720小时一步
+    #     posts_per_round=10,                                              # 每轮帖子数量（减少以便观察多模态效果）
+    #     users_per_post=20,                                              # 每个帖子用户数量
+    #     config=config                                                   # 配置
+    # )
 
     print("\n🎉 时间序列模拟完成！")
     print(f"📊 结果保存在: Output/timeseries/{ts_sim.batch_id}/")

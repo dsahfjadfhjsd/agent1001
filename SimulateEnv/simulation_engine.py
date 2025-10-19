@@ -440,9 +440,9 @@ class SimulationEngine:
             print(f"数据已增量保存到: {save_path}")
 
         # 显示轮次结果（包含认知变化信息）
-        self._print_enhanced_round_summary(round_number, successful_actions, thinking_results)
+        avg_sentiment_change, avg_stance_change = self._print_enhanced_round_summary(round_number, successful_actions, thinking_results)
 
-        return successful_actions
+        return successful_actions, avg_sentiment_change, avg_stance_change
 
     def get_current_state(self) -> Optional[Dict[str, Any]]:
         """获取当前环境状态"""
@@ -651,6 +651,10 @@ class SimulationEngine:
         print(f"- 行为统计: {action_types}")
         print(f"- 活跃用户: {len(set(action.user_id for action in actions))}人")
 
+        # 初始化默认值
+        avg_stance_change = 0.0
+        avg_sentiment_change = 0.0
+
         if stance_changes:
             avg_stance_change = sum(stance_changes) / len(stance_changes)
             print(f"- 平均立场变化: {avg_stance_change:.3f} ({len(stance_changes)}人有变化)")
@@ -659,14 +663,16 @@ class SimulationEngine:
             avg_sentiment_change = sum(sentiment_changes) / len(sentiment_changes)
             print(f"- 平均情感变化: {avg_sentiment_change:.3f} ({len(sentiment_changes)}人有变化)")
 
-        # 显示部分行为详情
-        print("- 部分行为详情:")
-        for i, action in enumerate(actions[:3], 1):
-            action_desc = action.action_type.value
-            if action.content:
-                content_preview = action.content[:30] + "..." if len(action.content) > 30 else action.content
-                action_desc += f" (内容: {content_preview})"
-            print(f"  {i}. {action.user_id[:20]}...: {action_desc}")
+        # # 显示部分行为详情
+        # print("- 部分行为详情:")
+        # for i, action in enumerate(actions[:3], 1):
+        #     action_desc = action.action_type.value
+        #     if action.content:
+        #         content_preview = action.content[:30] + "..." if len(action.content) > 30 else action.content
+        #         action_desc += f" (内容: {content_preview})"
+        #     print(f"  {i}. {action.user_id[:20]}...: {action_desc}")
+
+        return avg_sentiment_change, avg_stance_change
 
     def get_user_cognition_changes(self) -> Dict[str, Any]:
         """

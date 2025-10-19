@@ -51,6 +51,9 @@ class SimulationConfig:
     # 新增：Prompt导出配置
     export_prompts: bool = False  # 是否导出所有prompts到文件
     prompt_export_dir: str = None  # prompt导出目录
+    # 新增：事件描述配置
+    event_description: str = None  # 事件简要描述，用于生成prompt中的背景说明
+    stance_context: str = None  # 立场语境说明（如："1=支持俄罗斯，-1=支持乌克兰"）
     # 新增：多模态分析配置
     enable_multimodal: bool = False  # 是否启用多模态分析
     multimodal_model: str = "qwen-vl-max"  # 多模态模型名称
@@ -379,7 +382,15 @@ Please respond strictly in JSON format, including:
         post = environment_state['post']
         comments = environment_state['primary_comments']
 
+        # 构建事件背景说明
+        event_context = ""
+        if self.config.event_description:
+            event_context += f"Event Background: {self.config.event_description}\n"
+        if self.config.stance_context:
+            event_context += f"Stance Definition: {self.config.stance_context}\n"
+            
         prompt = f"""
+{event_context}
 User Profile:
 - Age Group: {age_group}
 - Gender: {gender}

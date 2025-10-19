@@ -289,6 +289,7 @@ class DataStorage:
 
         # 检查数据完整性：如果文件不存在但已保存计数>0，说明数据丢失，需要重建
         if not file_exists_before and env._saved_actions_count > 0:
+            print(f"{actions_path} 文件不存在，可能之前的数据丢失")
             print(f"⚠️ 检测到数据丢失！文件不存在但已有{env._saved_actions_count}个已保存行为")
             print(f"🔄 重建完整的行为记录文件...")
             # 保存所有行为，而不只是新增的
